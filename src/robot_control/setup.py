@@ -15,8 +15,8 @@ setup(
     zip_safe=True,
     maintainer='yvette_pi',
     maintainer_email='yvette_pi@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Autonomous agricultural robot control package',
+    license='MIT',
     extras_require={
         'test': [
             'pytest',
@@ -24,6 +24,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'motor_driver = robot_control.motor_driver:main',
+            'camera_publisher = robot_control.camera_publisher:main',
+            'capture_image = robot_control.capture:main',
+            'camera_stream = robot_control.camera_stream:main',
         ],
     },
 )
