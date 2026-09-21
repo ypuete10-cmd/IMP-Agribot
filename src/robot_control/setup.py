@@ -28,6 +28,7 @@ setup(
             'camera_publisher = robot_control.camera_publisher:main',
             'capture_image = robot_control.capture:main',
             'camera_stream = robot_control.camera_stream:main',
+            'ai_inference = robot_control.ai_inference:main',
         ],
     },
 )
