@@ -1,0 +1,2841 @@
+{
+  "mission_id": "SCAFFOLD-DEMO",
+  "updated": "2026-09-22T19:54:34",
+  "results": [
+    {
+      "id": 1,
+      "waypoint": "WP-01",
+      "timestamp": "2026-09-22T09:12:00",
+      "lat": 1.3504,
+      "lon": 103.6823,
+      "classification": "healthy",
+      "confidence": 0.93
+    },
+    {
+      "id": 2,
+      "waypoint": "WP-02",
+      "timestamp": "2026-09-22T09:14:30",
+      "lat": 1.35044,
+      "lon": 103.68238,
+      "classification": "early_blight",
+      "confidence": 0.87
+    },
+    {
+      "id": 3,
+      "waypoint": "WP-03",
+      "timestamp": "2026-09-22T09:17:05",
+      "lat": 1.35047,
+      "lon": 103.68245,
+      "classification": "healthy",
+      "confidence": 0.91
+    },
+    {
+      "id": 4,
+      "waypoint": "WP-04",
+      "timestamp": "2026-09-22T09:19:40",
+      "lat": 1.35043,
+      "lon": 103.68252,
+      "classification": "healthy",
+      "confidence": 0.95
+    },
+    {
+      "id": 5,
+      "waypoint": "WP-05",
+      "timestamp": "2026-09-22T09:22:15",
+      "lat": 1.35038,
+      "lon": 103.68247,
+      "classification": "late_blight",
+      "confidence": 0.82
+    },
+    {
+      "waypoint": "WP-01",
+      "lat": 1.350227193846344,
+      "lon": 103.68204296684846,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:02:00",
+      "id": 6
+    },
+    {
+      "waypoint": "WP-02",
+      "lat": 1.3508047404061492,
+      "lon": 103.68250962864452,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:02:10",
+      "id": 7
+    },
+    {
+      "waypoint": "WP-03",
+      "lat": 1.3505244474166092,
+      "lon": 103.68244407656319,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:02:20",
+      "id": 8
+    },
+    {
+      "waypoint": "WP-04",
+      "lat": 1.350611161398138,
+      "lon": 103.68270078410826,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:02:30",
+      "id": 9
+    },
+    {
+      "waypoint": "WP-05",
+      "lat": 1.3507620073623392,
+      "lon": 103.68265907080252,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:02:40",
+      "id": 10
+    },
+    {
+      "waypoint": "WP-06",
+      "lat": 1.3507329414181755,
+      "lon": 103.68260435219766,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:02:50",
+      "id": 11
+    },
+    {
+      "waypoint": "WP-07",
+      "lat": 1.3500870713247715,
+      "lon": 103.68231002586228,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:03:00",
+      "id": 12
+    },
+    {
+      "waypoint": "WP-08",
+      "lat": 1.35003943924499,
+      "lon": 103.68251767177438,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:03:10",
+      "id": 13
+    },
+    {
+      "waypoint": "WP-09",
+      "lat": 1.3507949939836819,
+      "lon": 103.68259810679628,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:03:20",
+      "id": 14
+    },
+    {
+      "waypoint": "WP-10",
+      "lat": 1.350087154608731,
+      "lon": 103.68277136441398,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:03:30",
+      "id": 15
+    },
+    {
+      "waypoint": "WP-11",
+      "lat": 1.350439632096918,
+      "lon": 103.6826291464242,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:03:40",
+      "id": 16
+    },
+    {
+      "waypoint": "WP-12",
+      "lat": 1.350813302440754,
+      "lon": 103.6826909493374,
+      "classification": "early_blight",
+      "confidence": 0.75,
+      "timestamp": "2026-09-22T19:03:50",
+      "id": 17
+    },
+    {
+      "waypoint": "WP-13",
+      "lat": 1.3501254319310974,
+      "lon": 103.68254913685014,
+      "classification": "early_blight",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:04:00",
+      "id": 18
+    },
+    {
+      "waypoint": "WP-14",
+      "lat": 1.3506271915454164,
+      "lon": 103.68205491463344,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:04:10",
+      "id": 19
+    },
+    {
+      "waypoint": "WP-15",
+      "lat": 1.350485815538035,
+      "lon": 103.68220722500853,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:04:20",
+      "id": 20
+    },
+    {
+      "waypoint": "WP-16",
+      "lat": 1.350522660234695,
+      "lon": 103.68255090190486,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:04:30",
+      "id": 21
+    },
+    {
+      "waypoint": "WP-17",
+      "lat": 1.350023031484851,
+      "lon": 103.68228650460746,
+      "classification": "early_blight",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:04:40",
+      "id": 22
+    },
+    {
+      "waypoint": "WP-18",
+      "lat": 1.3501491557167808,
+      "lon": 103.68272416967604,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:04:50",
+      "id": 23
+    },
+    {
+      "waypoint": "WP-19",
+      "lat": 1.350088133131678,
+      "lon": 103.68269842221513,
+      "classification": "healthy",
+      "confidence": 0.9,
+      "timestamp": "2026-09-22T19:05:00",
+      "id": 24
+    },
+    {
+      "waypoint": "WP-20",
+      "lat": 1.3505237910369008,
+      "lon": 103.68208326045004,
+      "classification": "early_blight",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:05:10",
+      "id": 25
+    },
+    {
+      "waypoint": "WP-21",
+      "lat": 1.350084390865229,
+      "lon": 103.68217890989791,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:05:20",
+      "id": 26
+    },
+    {
+      "waypoint": "WP-22",
+      "lat": 1.3504706746826864,
+      "lon": 103.68236624836779,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:05:30",
+      "id": 27
+    },
+    {
+      "waypoint": "WP-23",
+      "lat": 1.35076551331462,
+      "lon": 103.68279699194315,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:05:40",
+      "id": 28
+    },
+    {
+      "waypoint": "WP-24",
+      "lat": 1.3507300154229525,
+      "lon": 103.68215851921796,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:05:50",
+      "id": 29
+    },
+    {
+      "waypoint": "WP-25",
+      "lat": 1.350098045746831,
+      "lon": 103.68242284078487,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:06:00",
+      "id": 30
+    },
+    {
+      "waypoint": "WP-26",
+      "lat": 1.3504665773714635,
+      "lon": 103.68244297999333,
+      "classification": "early_blight",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:06:10",
+      "id": 31
+    },
+    {
+      "waypoint": "WP-27",
+      "lat": 1.3507461450254261,
+      "lon": 103.6822259442725,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:06:20",
+      "id": 32
+    },
+    {
+      "waypoint": "WP-28",
+      "lat": 1.3503136156425903,
+      "lon": 103.6820331517076,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:06:30",
+      "id": 33
+    },
+    {
+      "waypoint": "WP-29",
+      "lat": 1.3508133411681236,
+      "lon": 103.68206470604672,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:06:40",
+      "id": 34
+    },
+    {
+      "waypoint": "WP-30",
+      "lat": 1.3504001676051174,
+      "lon": 103.68271286071653,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:06:50",
+      "id": 35
+    },
+    {
+      "waypoint": "WP-31",
+      "lat": 1.3505202736981334,
+      "lon": 103.68267171307897,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:07:00",
+      "id": 36
+    },
+    {
+      "waypoint": "WP-32",
+      "lat": 1.3505222484011568,
+      "lon": 103.682534225185,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:07:10",
+      "id": 37
+    },
+    {
+      "waypoint": "WP-33",
+      "lat": 1.3507461440320054,
+      "lon": 103.6823679119301,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:07:20",
+      "id": 38
+    },
+    {
+      "waypoint": "WP-34",
+      "lat": 1.3504448603187258,
+      "lon": 103.68263071820803,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:07:30",
+      "id": 39
+    },
+    {
+      "waypoint": "WP-35",
+      "lat": 1.350578952684859,
+      "lon": 103.68280697333857,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:07:40",
+      "id": 40
+    },
+    {
+      "waypoint": "WP-36",
+      "lat": 1.3506514720863967,
+      "lon": 103.68279347819082,
+      "classification": "early_blight",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:07:50",
+      "id": 41
+    },
+    {
+      "waypoint": "WP-37",
+      "lat": 1.3501646635768314,
+      "lon": 103.68267211258433,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:08:00",
+      "id": 42
+    },
+    {
+      "waypoint": "WP-38",
+      "lat": 1.3502439299525304,
+      "lon": 103.68242892973753,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:08:10",
+      "id": 43
+    },
+    {
+      "waypoint": "WP-39",
+      "lat": 1.3503609339776945,
+      "lon": 103.68241684124555,
+      "classification": "healthy",
+      "confidence": 0.9,
+      "timestamp": "2026-09-22T19:08:20",
+      "id": 44
+    },
+    {
+      "waypoint": "WP-40",
+      "lat": 1.3504208521753343,
+      "lon": 103.68228349145295,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:08:30",
+      "id": 45
+    },
+    {
+      "waypoint": "WP-41",
+      "lat": 1.3506332844354743,
+      "lon": 103.68204918597192,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:08:40",
+      "id": 46
+    },
+    {
+      "waypoint": "WP-42",
+      "lat": 1.3500781581477108,
+      "lon": 103.68201841215568,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:08:50",
+      "id": 47
+    },
+    {
+      "waypoint": "WP-43",
+      "lat": 1.3507584142034479,
+      "lon": 103.68242982602663,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:09:00",
+      "id": 48
+    },
+    {
+      "waypoint": "WP-44",
+      "lat": 1.3500319945371775,
+      "lon": 103.68279559217584,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:09:10",
+      "id": 49
+    },
+    {
+      "waypoint": "WP-45",
+      "lat": 1.350298313892249,
+      "lon": 103.68275989585216,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:09:20",
+      "id": 50
+    },
+    {
+      "waypoint": "WP-46",
+      "lat": 1.3506691525865546,
+      "lon": 103.6824477107762,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:09:30",
+      "id": 51
+    },
+    {
+      "waypoint": "WP-47",
+      "lat": 1.3506971233440581,
+      "lon": 103.68223205415588,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:09:40",
+      "id": 52
+    },
+    {
+      "waypoint": "WP-48",
+      "lat": 1.3507763528662715,
+      "lon": 103.68257140813931,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:09:50",
+      "id": 53
+    },
+    {
+      "waypoint": "WP-49",
+      "lat": 1.3502274284806186,
+      "lon": 103.68250443555056,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:10:00",
+      "id": 54
+    },
+    {
+      "waypoint": "WP-50",
+      "lat": 1.3506278905911062,
+      "lon": 103.68242024453517,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:10:10",
+      "id": 55
+    },
+    {
+      "waypoint": "WP-51",
+      "lat": 1.3501958415636959,
+      "lon": 103.68250590463313,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:10:20",
+      "id": 56
+    },
+    {
+      "waypoint": "WP-52",
+      "lat": 1.3506377381652221,
+      "lon": 103.6824164020066,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:10:30",
+      "id": 57
+    },
+    {
+      "waypoint": "WP-53",
+      "lat": 1.350074324796303,
+      "lon": 103.68268516229269,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:10:40",
+      "id": 58
+    },
+    {
+      "waypoint": "WP-54",
+      "lat": 1.3507014349041815,
+      "lon": 103.68219293909172,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:10:50",
+      "id": 59
+    },
+    {
+      "waypoint": "WP-55",
+      "lat": 1.3501159752957415,
+      "lon": 103.68251465830522,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:11:00",
+      "id": 60
+    },
+    {
+      "waypoint": "WP-56",
+      "lat": 1.3502900259296506,
+      "lon": 103.68240869485149,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:11:10",
+      "id": 61
+    },
+    {
+      "waypoint": "WP-57",
+      "lat": 1.3502002573067577,
+      "lon": 103.68205823687455,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:11:20",
+      "id": 62
+    },
+    {
+      "waypoint": "WP-58",
+      "lat": 1.3502382605421552,
+      "lon": 103.68206211494363,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:11:30",
+      "id": 63
+    },
+    {
+      "waypoint": "WP-59",
+      "lat": 1.3506715598372288,
+      "lon": 103.68213484492937,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:11:40",
+      "id": 64
+    },
+    {
+      "waypoint": "WP-60",
+      "lat": 1.350330280788131,
+      "lon": 103.68230173198808,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:11:50",
+      "id": 65
+    },
+    {
+      "waypoint": "WP-61",
+      "lat": 1.3505124219648885,
+      "lon": 103.68233785997232,
+      "classification": "healthy",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:12:00",
+      "id": 66
+    },
+    {
+      "waypoint": "WP-62",
+      "lat": 1.350538311972534,
+      "lon": 103.68219852533309,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:12:10",
+      "id": 67
+    },
+    {
+      "waypoint": "WP-63",
+      "lat": 1.3501402420128692,
+      "lon": 103.68278423171682,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:12:20",
+      "id": 68
+    },
+    {
+      "waypoint": "WP-64",
+      "lat": 1.3505472138217123,
+      "lon": 103.68230162123187,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:12:30",
+      "id": 69
+    },
+    {
+      "waypoint": "WP-65",
+      "lat": 1.3502685942081476,
+      "lon": 103.682516470355,
+      "classification": "healthy",
+      "confidence": 0.75,
+      "timestamp": "2026-09-22T19:12:40",
+      "id": 70
+    },
+    {
+      "waypoint": "WP-66",
+      "lat": 1.3505010541464122,
+      "lon": 103.68246207615361,
+      "classification": "early_blight",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:12:50",
+      "id": 71
+    },
+    {
+      "waypoint": "WP-67",
+      "lat": 1.350458964582821,
+      "lon": 103.68213660091308,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:13:00",
+      "id": 72
+    },
+    {
+      "waypoint": "WP-68",
+      "lat": 1.3505289127099591,
+      "lon": 103.68264284605176,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:13:10",
+      "id": 73
+    },
+    {
+      "waypoint": "WP-69",
+      "lat": 1.3507421283154124,
+      "lon": 103.68258967690444,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:13:20",
+      "id": 74
+    },
+    {
+      "waypoint": "WP-70",
+      "lat": 1.3505633461792383,
+      "lon": 103.68230021894128,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:13:30",
+      "id": 75
+    },
+    {
+      "waypoint": "WP-71",
+      "lat": 1.3504178403757603,
+      "lon": 103.68264002511229,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:13:40",
+      "id": 76
+    },
+    {
+      "waypoint": "WP-72",
+      "lat": 1.3502208409019694,
+      "lon": 103.68245159878502,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:13:50",
+      "id": 77
+    },
+    {
+      "waypoint": "WP-73",
+      "lat": 1.350104971749219,
+      "lon": 103.68255892574919,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:14:00",
+      "id": 78
+    },
+    {
+      "waypoint": "WP-74",
+      "lat": 1.3503943728745182,
+      "lon": 103.6821530802878,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:14:10",
+      "id": 79
+    },
+    {
+      "waypoint": "WP-75",
+      "lat": 1.3504169765567975,
+      "lon": 103.68216498058548,
+      "classification": "healthy",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:14:20",
+      "id": 80
+    },
+    {
+      "waypoint": "WP-76",
+      "lat": 1.3506452609022246,
+      "lon": 103.6823782664944,
+      "classification": "early_blight",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:14:30",
+      "id": 81
+    },
+    {
+      "waypoint": "WP-77",
+      "lat": 1.3501088089401152,
+      "lon": 103.68248316401768,
+      "classification": "healthy",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:14:40",
+      "id": 82
+    },
+    {
+      "waypoint": "WP-78",
+      "lat": 1.3507589397813675,
+      "lon": 103.68215802928376,
+      "classification": "early_blight",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:14:50",
+      "id": 83
+    },
+    {
+      "waypoint": "WP-79",
+      "lat": 1.350180702022492,
+      "lon": 103.68217931821842,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:15:00",
+      "id": 84
+    },
+    {
+      "waypoint": "WP-80",
+      "lat": 1.3501061408853108,
+      "lon": 103.6820713091941,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:15:10",
+      "id": 85
+    },
+    {
+      "waypoint": "WP-81",
+      "lat": 1.350231209111177,
+      "lon": 103.68236395491476,
+      "classification": "early_blight",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:15:20",
+      "id": 86
+    },
+    {
+      "waypoint": "WP-82",
+      "lat": 1.3507822477192715,
+      "lon": 103.68210850850255,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:15:30",
+      "id": 87
+    },
+    {
+      "waypoint": "WP-83",
+      "lat": 1.3503262786720784,
+      "lon": 103.68255768787276,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:15:40",
+      "id": 88
+    },
+    {
+      "waypoint": "WP-84",
+      "lat": 1.350315466765768,
+      "lon": 103.68240457275066,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:15:50",
+      "id": 89
+    },
+    {
+      "waypoint": "WP-85",
+      "lat": 1.3503045954125008,
+      "lon": 103.68274361879371,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:16:00",
+      "id": 90
+    },
+    {
+      "waypoint": "WP-86",
+      "lat": 1.3501514354777084,
+      "lon": 103.68250005787252,
+      "classification": "early_blight",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:16:10",
+      "id": 91
+    },
+    {
+      "waypoint": "WP-87",
+      "lat": 1.3507836546726661,
+      "lon": 103.68236746200111,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:16:20",
+      "id": 92
+    },
+    {
+      "waypoint": "WP-88",
+      "lat": 1.3507231535730557,
+      "lon": 103.68218811796724,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:16:30",
+      "id": 93
+    },
+    {
+      "waypoint": "WP-89",
+      "lat": 1.3508013899740399,
+      "lon": 103.68223852688821,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:16:40",
+      "id": 94
+    },
+    {
+      "waypoint": "WP-90",
+      "lat": 1.3502102406812468,
+      "lon": 103.68214056735061,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:16:50",
+      "id": 95
+    },
+    {
+      "waypoint": "WP-91",
+      "lat": 1.3501456131362741,
+      "lon": 103.68224004419434,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:17:00",
+      "id": 96
+    },
+    {
+      "waypoint": "WP-92",
+      "lat": 1.3502591919286293,
+      "lon": 103.68244496151439,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:17:10",
+      "id": 97
+    },
+    {
+      "waypoint": "WP-93",
+      "lat": 1.3506585251352834,
+      "lon": 103.68253483049044,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:17:20",
+      "id": 98
+    },
+    {
+      "waypoint": "WP-94",
+      "lat": 1.3502704717447256,
+      "lon": 103.68266841817169,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:17:30",
+      "id": 99
+    },
+    {
+      "waypoint": "WP-95",
+      "lat": 1.3505564671535861,
+      "lon": 103.68261239643282,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:17:40",
+      "id": 100
+    },
+    {
+      "waypoint": "WP-96",
+      "lat": 1.3505516419459702,
+      "lon": 103.68208492860495,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:17:50",
+      "id": 101
+    },
+    {
+      "waypoint": "WP-97",
+      "lat": 1.3505599022979504,
+      "lon": 103.68216740078152,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:18:00",
+      "id": 102
+    },
+    {
+      "waypoint": "WP-98",
+      "lat": 1.3501660202080614,
+      "lon": 103.68255476589536,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:18:10",
+      "id": 103
+    },
+    {
+      "waypoint": "WP-99",
+      "lat": 1.3500754616697088,
+      "lon": 103.68261169974697,
+      "classification": "early_blight",
+      "confidence": 0.9,
+      "timestamp": "2026-09-22T19:18:20",
+      "id": 104
+    },
+    {
+      "waypoint": "WP-100",
+      "lat": 1.3504958766620683,
+      "lon": 103.68201280012957,
+      "classification": "early_blight",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:18:30",
+      "id": 105
+    },
+    {
+      "waypoint": "WP-101",
+      "lat": 1.3500915871411618,
+      "lon": 103.68225345024247,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:18:40",
+      "id": 106
+    },
+    {
+      "waypoint": "WP-102",
+      "lat": 1.3505903333060798,
+      "lon": 103.68207419260261,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:18:50",
+      "id": 107
+    },
+    {
+      "waypoint": "WP-103",
+      "lat": 1.3507712457557841,
+      "lon": 103.68244197055324,
+      "classification": "early_blight",
+      "confidence": 0.9,
+      "timestamp": "2026-09-22T19:19:00",
+      "id": 108
+    },
+    {
+      "waypoint": "WP-104",
+      "lat": 1.3505755473832461,
+      "lon": 103.68277360582725,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:19:10",
+      "id": 109
+    },
+    {
+      "waypoint": "WP-105",
+      "lat": 1.3505655732778032,
+      "lon": 103.68237360511225,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:19:20",
+      "id": 110
+    },
+    {
+      "waypoint": "WP-106",
+      "lat": 1.350309385319909,
+      "lon": 103.68207547989904,
+      "classification": "early_blight",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:19:30",
+      "id": 111
+    },
+    {
+      "waypoint": "WP-107",
+      "lat": 1.3505241287954572,
+      "lon": 103.68278794854396,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:19:40",
+      "id": 112
+    },
+    {
+      "waypoint": "WP-108",
+      "lat": 1.350341661557186,
+      "lon": 103.68209331484691,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:19:50",
+      "id": 113
+    },
+    {
+      "waypoint": "WP-109",
+      "lat": 1.3505833566740355,
+      "lon": 103.6823776740461,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:20:00",
+      "id": 114
+    },
+    {
+      "waypoint": "WP-110",
+      "lat": 1.3507821773398814,
+      "lon": 103.68202113784946,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:20:10",
+      "id": 115
+    },
+    {
+      "waypoint": "WP-111",
+      "lat": 1.3504994426669303,
+      "lon": 103.68236171514022,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:20:20",
+      "id": 116
+    },
+    {
+      "waypoint": "WP-112",
+      "lat": 1.350287352345193,
+      "lon": 103.68237964017509,
+      "classification": "early_blight",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:20:30",
+      "id": 117
+    },
+    {
+      "waypoint": "WP-113",
+      "lat": 1.3502732663629748,
+      "lon": 103.6821845258087,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:20:40",
+      "id": 118
+    },
+    {
+      "waypoint": "WP-114",
+      "lat": 1.3507928014069561,
+      "lon": 103.68276000875804,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:20:50",
+      "id": 119
+    },
+    {
+      "waypoint": "WP-115",
+      "lat": 1.3502172369234762,
+      "lon": 103.6823999034032,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:21:00",
+      "id": 120
+    },
+    {
+      "waypoint": "WP-116",
+      "lat": 1.3501396047904706,
+      "lon": 103.68249439632801,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:21:10",
+      "id": 121
+    },
+    {
+      "waypoint": "WP-117",
+      "lat": 1.3506405820908949,
+      "lon": 103.68232131370503,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:21:20",
+      "id": 122
+    },
+    {
+      "waypoint": "WP-118",
+      "lat": 1.350720376915052,
+      "lon": 103.68269514647535,
+      "classification": "early_blight",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:21:30",
+      "id": 123
+    },
+    {
+      "waypoint": "WP-119",
+      "lat": 1.350214202471802,
+      "lon": 103.682397175793,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:21:40",
+      "id": 124
+    },
+    {
+      "waypoint": "WP-120",
+      "lat": 1.3506485506276384,
+      "lon": 103.6823928732893,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:21:50",
+      "id": 125
+    },
+    {
+      "waypoint": "WP-121",
+      "lat": 1.3507660257317737,
+      "lon": 103.68235966203224,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:22:00",
+      "id": 126
+    },
+    {
+      "waypoint": "WP-122",
+      "lat": 1.350123646342783,
+      "lon": 103.68260322220337,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:22:10",
+      "id": 127
+    },
+    {
+      "waypoint": "WP-123",
+      "lat": 1.3502627994989103,
+      "lon": 103.68273784191531,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:22:20",
+      "id": 128
+    },
+    {
+      "waypoint": "WP-124",
+      "lat": 1.3505183369553995,
+      "lon": 103.68259777459633,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:22:30",
+      "id": 129
+    },
+    {
+      "waypoint": "WP-125",
+      "lat": 1.3503197621498908,
+      "lon": 103.68267232939826,
+      "classification": "early_blight",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:22:40",
+      "id": 130
+    },
+    {
+      "waypoint": "WP-126",
+      "lat": 1.3502476754066972,
+      "lon": 103.68238826266395,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:22:50",
+      "id": 131
+    },
+    {
+      "waypoint": "WP-127",
+      "lat": 1.3501789165208173,
+      "lon": 103.68242896646503,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:23:00",
+      "id": 132
+    },
+    {
+      "waypoint": "WP-128",
+      "lat": 1.3506168821897218,
+      "lon": 103.68231184514623,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:23:10",
+      "id": 133
+    },
+    {
+      "waypoint": "WP-129",
+      "lat": 1.3502206420930434,
+      "lon": 103.68253142789484,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:23:20",
+      "id": 134
+    },
+    {
+      "waypoint": "WP-130",
+      "lat": 1.350456227488163,
+      "lon": 103.68234875880742,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:23:30",
+      "id": 135
+    },
+    {
+      "waypoint": "WP-131",
+      "lat": 1.3504973118120918,
+      "lon": 103.68268753077153,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:23:40",
+      "id": 136
+    },
+    {
+      "waypoint": "WP-132",
+      "lat": 1.3505702056561546,
+      "lon": 103.68249344280339,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:23:50",
+      "id": 137
+    },
+    {
+      "waypoint": "WP-133",
+      "lat": 1.350189016278277,
+      "lon": 103.68203440290198,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:24:00",
+      "id": 138
+    },
+    {
+      "waypoint": "WP-134",
+      "lat": 1.3504774617708886,
+      "lon": 103.68269099958789,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:24:10",
+      "id": 139
+    },
+    {
+      "waypoint": "WP-135",
+      "lat": 1.350476734656095,
+      "lon": 103.68202530817015,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:24:20",
+      "id": 140
+    },
+    {
+      "waypoint": "WP-136",
+      "lat": 1.3504594471643132,
+      "lon": 103.68265481032672,
+      "classification": "healthy",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:24:30",
+      "id": 141
+    },
+    {
+      "waypoint": "WP-137",
+      "lat": 1.3507403564118707,
+      "lon": 103.68268574503806,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:24:40",
+      "id": 142
+    },
+    {
+      "waypoint": "WP-138",
+      "lat": 1.3505456345845048,
+      "lon": 103.68211154070285,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:24:50",
+      "id": 143
+    },
+    {
+      "waypoint": "WP-139",
+      "lat": 1.3507715708378574,
+      "lon": 103.6827555017494,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:25:00",
+      "id": 144
+    },
+    {
+      "waypoint": "WP-140",
+      "lat": 1.3506086077917978,
+      "lon": 103.68269877746813,
+      "classification": "early_blight",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:25:10",
+      "id": 145
+    },
+    {
+      "waypoint": "WP-141",
+      "lat": 1.350150376238603,
+      "lon": 103.68260679972032,
+      "classification": "early_blight",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:25:20",
+      "id": 146
+    },
+    {
+      "waypoint": "WP-142",
+      "lat": 1.3505777141272186,
+      "lon": 103.68249471975089,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:25:30",
+      "id": 147
+    },
+    {
+      "waypoint": "WP-143",
+      "lat": 1.3505309546386814,
+      "lon": 103.68229842900057,
+      "classification": "early_blight",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:25:40",
+      "id": 148
+    },
+    {
+      "waypoint": "WP-144",
+      "lat": 1.350751484578924,
+      "lon": 103.68273282197039,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:25:50",
+      "id": 149
+    },
+    {
+      "waypoint": "WP-145",
+      "lat": 1.3507236973955439,
+      "lon": 103.68233370817252,
+      "classification": "early_blight",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:26:00",
+      "id": 150
+    },
+    {
+      "waypoint": "WP-146",
+      "lat": 1.3502279444444942,
+      "lon": 103.68241536084291,
+      "classification": "healthy",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:26:10",
+      "id": 151
+    },
+    {
+      "waypoint": "WP-147",
+      "lat": 1.3504244926646791,
+      "lon": 103.68206545409345,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:26:20",
+      "id": 152
+    },
+    {
+      "waypoint": "WP-148",
+      "lat": 1.3501060913996052,
+      "lon": 103.68266640457652,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:26:30",
+      "id": 153
+    },
+    {
+      "waypoint": "WP-149",
+      "lat": 1.3502711994347647,
+      "lon": 103.68278785355221,
+      "classification": "early_blight",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:26:40",
+      "id": 154
+    },
+    {
+      "waypoint": "WP-150",
+      "lat": 1.3508088955207878,
+      "lon": 103.68232925260997,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:26:50",
+      "id": 155
+    },
+    {
+      "waypoint": "WP-151",
+      "lat": 1.3504309581992684,
+      "lon": 103.68257061692638,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:27:00",
+      "id": 156
+    },
+    {
+      "waypoint": "WP-152",
+      "lat": 1.3501671495506276,
+      "lon": 103.68251999311826,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:27:10",
+      "id": 157
+    },
+    {
+      "waypoint": "WP-153",
+      "lat": 1.3504197728201932,
+      "lon": 103.6827799178638,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:27:20",
+      "id": 158
+    },
+    {
+      "waypoint": "WP-154",
+      "lat": 1.3502866253113102,
+      "lon": 103.68264051995261,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:27:30",
+      "id": 159
+    },
+    {
+      "waypoint": "WP-155",
+      "lat": 1.3502704050040044,
+      "lon": 103.68246339321128,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:27:40",
+      "id": 160
+    },
+    {
+      "waypoint": "WP-156",
+      "lat": 1.3503623030775675,
+      "lon": 103.68209634819868,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:27:50",
+      "id": 161
+    },
+    {
+      "waypoint": "WP-157",
+      "lat": 1.350396423303925,
+      "lon": 103.68269059408506,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:28:00",
+      "id": 162
+    },
+    {
+      "waypoint": "WP-158",
+      "lat": 1.3507362594277557,
+      "lon": 103.68272391068251,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:28:10",
+      "id": 163
+    },
+    {
+      "waypoint": "WP-159",
+      "lat": 1.3506132330809006,
+      "lon": 103.68240480372701,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:28:20",
+      "id": 164
+    },
+    {
+      "waypoint": "WP-160",
+      "lat": 1.3501209701565577,
+      "lon": 103.68246338891451,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:28:30",
+      "id": 165
+    },
+    {
+      "waypoint": "WP-161",
+      "lat": 1.3504614457888444,
+      "lon": 103.68237008701406,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:28:40",
+      "id": 166
+    },
+    {
+      "waypoint": "WP-162",
+      "lat": 1.3507648753997608,
+      "lon": 103.68231604982982,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:28:50",
+      "id": 167
+    },
+    {
+      "waypoint": "WP-163",
+      "lat": 1.3506923783112292,
+      "lon": 103.6826664149145,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:29:00",
+      "id": 168
+    },
+    {
+      "waypoint": "WP-164",
+      "lat": 1.350721370867846,
+      "lon": 103.68238166526993,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:29:10",
+      "id": 169
+    },
+    {
+      "waypoint": "WP-165",
+      "lat": 1.3506314799435366,
+      "lon": 103.6825090683094,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:29:20",
+      "id": 170
+    },
+    {
+      "waypoint": "WP-166",
+      "lat": 1.350152872940915,
+      "lon": 103.68238905054422,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:29:30",
+      "id": 171
+    },
+    {
+      "waypoint": "WP-167",
+      "lat": 1.350746209112372,
+      "lon": 103.68233585164408,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:29:40",
+      "id": 172
+    },
+    {
+      "waypoint": "WP-01",
+      "lat": 1.3501235700996905,
+      "lon": 103.68225958774237,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:30:54",
+      "id": 173
+    },
+    {
+      "waypoint": "WP-02",
+      "lat": 1.3506979647368567,
+      "lon": 103.68254915936267,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:31:04",
+      "id": 174
+    },
+    {
+      "waypoint": "WP-03",
+      "lat": 1.3502222846355254,
+      "lon": 103.68229765245002,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:31:14",
+      "id": 175
+    },
+    {
+      "waypoint": "WP-04",
+      "lat": 1.3500830460137199,
+      "lon": 103.6821577590996,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:31:24",
+      "id": 176
+    },
+    {
+      "waypoint": "WP-05",
+      "lat": 1.3505399488273637,
+      "lon": 103.68248281425731,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:31:34",
+      "id": 177
+    },
+    {
+      "waypoint": "WP-06",
+      "lat": 1.3501610123840313,
+      "lon": 103.68213959699351,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:31:44",
+      "id": 178
+    },
+    {
+      "waypoint": "WP-07",
+      "lat": 1.3503265804043811,
+      "lon": 103.6823332198289,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:31:54",
+      "id": 179
+    },
+    {
+      "waypoint": "WP-08",
+      "lat": 1.3503743949066338,
+      "lon": 103.68223670537103,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:32:04",
+      "id": 180
+    },
+    {
+      "waypoint": "WP-09",
+      "lat": 1.3507877704089521,
+      "lon": 103.68237587893877,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:32:14",
+      "id": 181
+    },
+    {
+      "waypoint": "WP-10",
+      "lat": 1.350361112327852,
+      "lon": 103.68223693530415,
+      "classification": "early_blight",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:32:24",
+      "id": 182
+    },
+    {
+      "waypoint": "WP-11",
+      "lat": 1.3505611552112928,
+      "lon": 103.68239546392316,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:32:34",
+      "id": 183
+    },
+    {
+      "waypoint": "WP-12",
+      "lat": 1.350167505964967,
+      "lon": 103.68253279280741,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:32:44",
+      "id": 184
+    },
+    {
+      "waypoint": "WP-13",
+      "lat": 1.350448375443914,
+      "lon": 103.68243875355509,
+      "classification": "early_blight",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:32:54",
+      "id": 185
+    },
+    {
+      "waypoint": "WP-14",
+      "lat": 1.3507419011084232,
+      "lon": 103.68216503300025,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:33:04",
+      "id": 186
+    },
+    {
+      "waypoint": "WP-15",
+      "lat": 1.3507079905967019,
+      "lon": 103.68201669228779,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:33:14",
+      "id": 187
+    },
+    {
+      "waypoint": "WP-16",
+      "lat": 1.3500990486802282,
+      "lon": 103.6826791313929,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:33:24",
+      "id": 188
+    },
+    {
+      "waypoint": "WP-17",
+      "lat": 1.3506120465792486,
+      "lon": 103.68277640696802,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:33:34",
+      "id": 189
+    },
+    {
+      "waypoint": "WP-18",
+      "lat": 1.350777877418591,
+      "lon": 103.68201300135546,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:33:44",
+      "id": 190
+    },
+    {
+      "waypoint": "WP-19",
+      "lat": 1.3505962996429122,
+      "lon": 103.68205356683522,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:33:54",
+      "id": 191
+    },
+    {
+      "waypoint": "WP-20",
+      "lat": 1.350327089085646,
+      "lon": 103.68218118379788,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:34:04",
+      "id": 192
+    },
+    {
+      "waypoint": "WP-21",
+      "lat": 1.3500929451862564,
+      "lon": 103.68256048786948,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:34:14",
+      "id": 193
+    },
+    {
+      "waypoint": "WP-22",
+      "lat": 1.350533796749865,
+      "lon": 103.68206425826023,
+      "classification": "early_blight",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:34:24",
+      "id": 194
+    },
+    {
+      "waypoint": "WP-23",
+      "lat": 1.3501785877560193,
+      "lon": 103.68246656198635,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:34:34",
+      "id": 195
+    },
+    {
+      "waypoint": "WP-24",
+      "lat": 1.3501741324542575,
+      "lon": 103.68272470506791,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:34:44",
+      "id": 196
+    },
+    {
+      "waypoint": "WP-25",
+      "lat": 1.3503931369616318,
+      "lon": 103.68239388978029,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:34:54",
+      "id": 197
+    },
+    {
+      "waypoint": "WP-26",
+      "lat": 1.3505924901242023,
+      "lon": 103.68215091034382,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:35:04",
+      "id": 198
+    },
+    {
+      "waypoint": "WP-27",
+      "lat": 1.3504573627232843,
+      "lon": 103.68212563935866,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:35:14",
+      "id": 199
+    },
+    {
+      "waypoint": "WP-28",
+      "lat": 1.3502952384663505,
+      "lon": 103.68262797461895,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:35:24",
+      "id": 200
+    },
+    {
+      "waypoint": "WP-29",
+      "lat": 1.3505673069054984,
+      "lon": 103.68219162106095,
+      "classification": "early_blight",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:35:34",
+      "id": 201
+    },
+    {
+      "waypoint": "WP-30",
+      "lat": 1.3504968918922227,
+      "lon": 103.68239221344686,
+      "classification": "early_blight",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:35:44",
+      "id": 202
+    },
+    {
+      "waypoint": "WP-31",
+      "lat": 1.350069705119522,
+      "lon": 103.68253832541635,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:35:54",
+      "id": 203
+    },
+    {
+      "waypoint": "WP-32",
+      "lat": 1.3506971335046196,
+      "lon": 103.68215699343511,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:36:04",
+      "id": 204
+    },
+    {
+      "waypoint": "WP-33",
+      "lat": 1.3506518782610173,
+      "lon": 103.68217215345877,
+      "classification": "early_blight",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:36:14",
+      "id": 205
+    },
+    {
+      "waypoint": "WP-34",
+      "lat": 1.350164842142712,
+      "lon": 103.68229597091465,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:36:24",
+      "id": 206
+    },
+    {
+      "waypoint": "WP-35",
+      "lat": 1.350150812442811,
+      "lon": 103.68270022781263,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:36:34",
+      "id": 207
+    },
+    {
+      "waypoint": "WP-36",
+      "lat": 1.350440245376251,
+      "lon": 103.68236023132083,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:36:44",
+      "id": 208
+    },
+    {
+      "waypoint": "WP-37",
+      "lat": 1.3505097167918594,
+      "lon": 103.68201459621022,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:36:54",
+      "id": 209
+    },
+    {
+      "waypoint": "WP-38",
+      "lat": 1.350265118800142,
+      "lon": 103.68261102982926,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:37:04",
+      "id": 210
+    },
+    {
+      "waypoint": "WP-39",
+      "lat": 1.3502924523103867,
+      "lon": 103.68213440460991,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:37:14",
+      "id": 211
+    },
+    {
+      "waypoint": "WP-40",
+      "lat": 1.3504817665734823,
+      "lon": 103.68222260401916,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:37:24",
+      "id": 212
+    },
+    {
+      "waypoint": "WP-41",
+      "lat": 1.3506103510303087,
+      "lon": 103.68217180683929,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:37:34",
+      "id": 213
+    },
+    {
+      "waypoint": "WP-42",
+      "lat": 1.3505981612727713,
+      "lon": 103.68203266824943,
+      "classification": "early_blight",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:37:44",
+      "id": 214
+    },
+    {
+      "waypoint": "WP-43",
+      "lat": 1.3500545186456059,
+      "lon": 103.68216211994911,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:37:54",
+      "id": 215
+    },
+    {
+      "waypoint": "WP-44",
+      "lat": 1.3504623511224116,
+      "lon": 103.68213198745441,
+      "classification": "healthy",
+      "confidence": 0.94,
+      "timestamp": "2026-09-22T19:38:04",
+      "id": 216
+    },
+    {
+      "waypoint": "WP-45",
+      "lat": 1.3500690984570722,
+      "lon": 103.68214022316366,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:38:14",
+      "id": 217
+    },
+    {
+      "waypoint": "WP-46",
+      "lat": 1.3500774329766327,
+      "lon": 103.68223480207617,
+      "classification": "early_blight",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:38:24",
+      "id": 218
+    },
+    {
+      "waypoint": "WP-47",
+      "lat": 1.3502922144977931,
+      "lon": 103.68265287055429,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:38:34",
+      "id": 219
+    },
+    {
+      "waypoint": "WP-48",
+      "lat": 1.3506835067455931,
+      "lon": 103.68280186132833,
+      "classification": "healthy",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:38:44",
+      "id": 220
+    },
+    {
+      "waypoint": "WP-49",
+      "lat": 1.3505258881351967,
+      "lon": 103.68233008700899,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:38:54",
+      "id": 221
+    },
+    {
+      "waypoint": "WP-50",
+      "lat": 1.3500204362921475,
+      "lon": 103.68245122846041,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:39:04",
+      "id": 222
+    },
+    {
+      "waypoint": "WP-51",
+      "lat": 1.3507961571498814,
+      "lon": 103.6821189171564,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:39:14",
+      "id": 223
+    },
+    {
+      "waypoint": "WP-52",
+      "lat": 1.3501800172139635,
+      "lon": 103.68250722663717,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:39:24",
+      "id": 224
+    },
+    {
+      "waypoint": "WP-53",
+      "lat": 1.350131147486767,
+      "lon": 103.68259578467978,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:39:34",
+      "id": 225
+    },
+    {
+      "waypoint": "WP-54",
+      "lat": 1.3504353941482188,
+      "lon": 103.68264618974557,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:39:44",
+      "id": 226
+    },
+    {
+      "waypoint": "WP-55",
+      "lat": 1.350652445625409,
+      "lon": 103.68277812303513,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:39:54",
+      "id": 227
+    },
+    {
+      "waypoint": "WP-56",
+      "lat": 1.3507858694227737,
+      "lon": 103.68252558568857,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:40:04",
+      "id": 228
+    },
+    {
+      "waypoint": "WP-57",
+      "lat": 1.350439267991053,
+      "lon": 103.68211791330143,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:40:14",
+      "id": 229
+    },
+    {
+      "waypoint": "WP-58",
+      "lat": 1.350686036797994,
+      "lon": 103.68267663544425,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:40:24",
+      "id": 230
+    },
+    {
+      "waypoint": "WP-59",
+      "lat": 1.3502015976399944,
+      "lon": 103.68279176930412,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:40:34",
+      "id": 231
+    },
+    {
+      "waypoint": "WP-60",
+      "lat": 1.3505951777770444,
+      "lon": 103.6822257415951,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:40:44",
+      "id": 232
+    },
+    {
+      "waypoint": "WP-61",
+      "lat": 1.3507806015938095,
+      "lon": 103.68209754940939,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:40:54",
+      "id": 233
+    },
+    {
+      "waypoint": "WP-62",
+      "lat": 1.3506597394537094,
+      "lon": 103.68274439991772,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:41:04",
+      "id": 234
+    },
+    {
+      "waypoint": "WP-63",
+      "lat": 1.3502193711604686,
+      "lon": 103.68270046794166,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:41:14",
+      "id": 235
+    },
+    {
+      "waypoint": "WP-64",
+      "lat": 1.3502545896438147,
+      "lon": 103.6825826540589,
+      "classification": "early_blight",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:41:24",
+      "id": 236
+    },
+    {
+      "waypoint": "WP-65",
+      "lat": 1.3506388740996917,
+      "lon": 103.68273153425721,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:41:34",
+      "id": 237
+    },
+    {
+      "waypoint": "WP-66",
+      "lat": 1.3504878994619338,
+      "lon": 103.6825647115341,
+      "classification": "early_blight",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:41:44",
+      "id": 238
+    },
+    {
+      "waypoint": "WP-67",
+      "lat": 1.3500553148791832,
+      "lon": 103.68207543843086,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:41:54",
+      "id": 239
+    },
+    {
+      "waypoint": "WP-68",
+      "lat": 1.3500650892490922,
+      "lon": 103.68222143282755,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:42:04",
+      "id": 240
+    },
+    {
+      "waypoint": "WP-69",
+      "lat": 1.35063927421147,
+      "lon": 103.68230934468154,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:42:14",
+      "id": 241
+    },
+    {
+      "waypoint": "WP-70",
+      "lat": 1.3503128853867115,
+      "lon": 103.68279680041658,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:42:24",
+      "id": 242
+    },
+    {
+      "waypoint": "WP-71",
+      "lat": 1.3504590867715036,
+      "lon": 103.68275873565254,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:42:34",
+      "id": 243
+    },
+    {
+      "waypoint": "WP-72",
+      "lat": 1.3502660120235965,
+      "lon": 103.68262608959625,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:42:44",
+      "id": 244
+    },
+    {
+      "waypoint": "WP-73",
+      "lat": 1.350282697532867,
+      "lon": 103.68259656208964,
+      "classification": "early_blight",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:42:54",
+      "id": 245
+    },
+    {
+      "waypoint": "WP-74",
+      "lat": 1.3505464654645831,
+      "lon": 103.68265663866124,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:43:04",
+      "id": 246
+    },
+    {
+      "waypoint": "WP-75",
+      "lat": 1.350096607701116,
+      "lon": 103.68211034582899,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:43:14",
+      "id": 247
+    },
+    {
+      "waypoint": "WP-76",
+      "lat": 1.3507690046301122,
+      "lon": 103.6827232640457,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:43:24",
+      "id": 248
+    },
+    {
+      "waypoint": "WP-77",
+      "lat": 1.3500893643711054,
+      "lon": 103.68201241324826,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:43:34",
+      "id": 249
+    },
+    {
+      "waypoint": "WP-78",
+      "lat": 1.3501604401198208,
+      "lon": 103.68267756393753,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:43:44",
+      "id": 250
+    },
+    {
+      "waypoint": "WP-79",
+      "lat": 1.3506099267474736,
+      "lon": 103.68241754094515,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:43:54",
+      "id": 251
+    },
+    {
+      "waypoint": "WP-80",
+      "lat": 1.3506751997497717,
+      "lon": 103.68263562627196,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:44:04",
+      "id": 252
+    },
+    {
+      "waypoint": "WP-81",
+      "lat": 1.3508096333327908,
+      "lon": 103.68266648250916,
+      "classification": "early_blight",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:44:14",
+      "id": 253
+    },
+    {
+      "waypoint": "WP-82",
+      "lat": 1.3505596457402431,
+      "lon": 103.6821080802606,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:44:24",
+      "id": 254
+    },
+    {
+      "waypoint": "WP-83",
+      "lat": 1.3503130055826487,
+      "lon": 103.68221800877872,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:44:34",
+      "id": 255
+    },
+    {
+      "waypoint": "WP-84",
+      "lat": 1.3501023659248343,
+      "lon": 103.682376396801,
+      "classification": "healthy",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:44:44",
+      "id": 256
+    },
+    {
+      "waypoint": "WP-85",
+      "lat": 1.3505920729007364,
+      "lon": 103.68205009814874,
+      "classification": "healthy",
+      "confidence": 0.75,
+      "timestamp": "2026-09-22T19:44:54",
+      "id": 257
+    },
+    {
+      "waypoint": "WP-86",
+      "lat": 1.3504383356221075,
+      "lon": 103.68247264123119,
+      "classification": "healthy",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:45:04",
+      "id": 258
+    },
+    {
+      "waypoint": "WP-87",
+      "lat": 1.3508086681517935,
+      "lon": 103.68238448875097,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:45:14",
+      "id": 259
+    },
+    {
+      "waypoint": "WP-88",
+      "lat": 1.3503003377516973,
+      "lon": 103.68276731121259,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:45:24",
+      "id": 260
+    },
+    {
+      "waypoint": "WP-89",
+      "lat": 1.3508136258905192,
+      "lon": 103.68249605853923,
+      "classification": "early_blight",
+      "confidence": 0.85,
+      "timestamp": "2026-09-22T19:45:34",
+      "id": 261
+    },
+    {
+      "waypoint": "WP-90",
+      "lat": 1.3506274883971217,
+      "lon": 103.68252582777104,
+      "classification": "early_blight",
+      "confidence": 0.79,
+      "timestamp": "2026-09-22T19:45:44",
+      "id": 262
+    },
+    {
+      "waypoint": "WP-91",
+      "lat": 1.350110505732302,
+      "lon": 103.68266741579504,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:45:54",
+      "id": 263
+    },
+    {
+      "waypoint": "WP-92",
+      "lat": 1.3505427320119108,
+      "lon": 103.68263466582336,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:46:04",
+      "id": 264
+    },
+    {
+      "waypoint": "WP-93",
+      "lat": 1.3504512584964055,
+      "lon": 103.68270829504458,
+      "classification": "early_blight",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:46:14",
+      "id": 265
+    },
+    {
+      "waypoint": "WP-94",
+      "lat": 1.3503280906318416,
+      "lon": 103.68238407392414,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:46:24",
+      "id": 266
+    },
+    {
+      "waypoint": "WP-95",
+      "lat": 1.3506382978929203,
+      "lon": 103.68251274202953,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:46:34",
+      "id": 267
+    },
+    {
+      "waypoint": "WP-96",
+      "lat": 1.3507352578412328,
+      "lon": 103.68210228093791,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:46:44",
+      "id": 268
+    },
+    {
+      "waypoint": "WP-97",
+      "lat": 1.3504695721768483,
+      "lon": 103.68268260382241,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:46:54",
+      "id": 269
+    },
+    {
+      "waypoint": "WP-98",
+      "lat": 1.3506926703805642,
+      "lon": 103.68202508932434,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:47:04",
+      "id": 270
+    },
+    {
+      "waypoint": "WP-99",
+      "lat": 1.3500759918338998,
+      "lon": 103.68209160101384,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:47:14",
+      "id": 271
+    },
+    {
+      "waypoint": "WP-100",
+      "lat": 1.3504134622162332,
+      "lon": 103.68232155274917,
+      "classification": "early_blight",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:47:24",
+      "id": 272
+    },
+    {
+      "waypoint": "WP-101",
+      "lat": 1.3501186849040303,
+      "lon": 103.68231848866934,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:47:34",
+      "id": 273
+    },
+    {
+      "waypoint": "WP-102",
+      "lat": 1.3502532055101903,
+      "lon": 103.68247463772981,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:47:44",
+      "id": 274
+    },
+    {
+      "waypoint": "WP-103",
+      "lat": 1.3501470092291932,
+      "lon": 103.68222089001941,
+      "classification": "early_blight",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:47:54",
+      "id": 275
+    },
+    {
+      "waypoint": "WP-104",
+      "lat": 1.3504056471247394,
+      "lon": 103.68275192164347,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:48:04",
+      "id": 276
+    },
+    {
+      "waypoint": "WP-105",
+      "lat": 1.3504257627757121,
+      "lon": 103.68271368743586,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:48:14",
+      "id": 277
+    },
+    {
+      "waypoint": "WP-106",
+      "lat": 1.350408456086997,
+      "lon": 103.6827226540326,
+      "classification": "healthy",
+      "confidence": 0.75,
+      "timestamp": "2026-09-22T19:48:24",
+      "id": 278
+    },
+    {
+      "waypoint": "WP-107",
+      "lat": 1.35029538325617,
+      "lon": 103.68221385012801,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:48:34",
+      "id": 279
+    },
+    {
+      "waypoint": "WP-108",
+      "lat": 1.350638747447687,
+      "lon": 103.6823020275246,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:48:44",
+      "id": 280
+    },
+    {
+      "waypoint": "WP-109",
+      "lat": 1.3501568635821986,
+      "lon": 103.68233312234642,
+      "classification": "healthy",
+      "confidence": 0.98,
+      "timestamp": "2026-09-22T19:48:54",
+      "id": 281
+    },
+    {
+      "waypoint": "WP-110",
+      "lat": 1.350340753431755,
+      "lon": 103.6822623799008,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:49:04",
+      "id": 282
+    },
+    {
+      "waypoint": "WP-111",
+      "lat": 1.350419586648468,
+      "lon": 103.68274157330586,
+      "classification": "early_blight",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:49:14",
+      "id": 283
+    },
+    {
+      "waypoint": "WP-112",
+      "lat": 1.3505871281310668,
+      "lon": 103.68233242352157,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:49:24",
+      "id": 284
+    },
+    {
+      "waypoint": "WP-113",
+      "lat": 1.350567668574299,
+      "lon": 103.68223897762395,
+      "classification": "early_blight",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:49:34",
+      "id": 285
+    },
+    {
+      "waypoint": "WP-114",
+      "lat": 1.3507444210884987,
+      "lon": 103.68272155719654,
+      "classification": "early_blight",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:49:44",
+      "id": 286
+    },
+    {
+      "waypoint": "WP-115",
+      "lat": 1.3507534288576144,
+      "lon": 103.6825696127224,
+      "classification": "healthy",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:49:54",
+      "id": 287
+    },
+    {
+      "waypoint": "WP-116",
+      "lat": 1.3507842535688106,
+      "lon": 103.6823819122668,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:50:04",
+      "id": 288
+    },
+    {
+      "waypoint": "WP-117",
+      "lat": 1.350091843153221,
+      "lon": 103.68257199437355,
+      "classification": "early_blight",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:50:14",
+      "id": 289
+    },
+    {
+      "waypoint": "WP-118",
+      "lat": 1.3502323579531201,
+      "lon": 103.68217133449158,
+      "classification": "healthy",
+      "confidence": 0.86,
+      "timestamp": "2026-09-22T19:50:24",
+      "id": 290
+    },
+    {
+      "waypoint": "WP-119",
+      "lat": 1.3504100007494866,
+      "lon": 103.68217937284614,
+      "classification": "early_blight",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:50:34",
+      "id": 291
+    },
+    {
+      "waypoint": "WP-120",
+      "lat": 1.3506011462947378,
+      "lon": 103.6820445543062,
+      "classification": "early_blight",
+      "confidence": 0.92,
+      "timestamp": "2026-09-22T19:50:44",
+      "id": 292
+    },
+    {
+      "waypoint": "WP-121",
+      "lat": 1.3507728049895045,
+      "lon": 103.68223644144818,
+      "classification": "healthy",
+      "confidence": 0.88,
+      "timestamp": "2026-09-22T19:50:54",
+      "id": 293
+    },
+    {
+      "waypoint": "WP-122",
+      "lat": 1.3505926957906462,
+      "lon": 103.68230971663237,
+      "classification": "healthy",
+      "confidence": 0.9,
+      "timestamp": "2026-09-22T19:51:04",
+      "id": 294
+    },
+    {
+      "waypoint": "WP-123",
+      "lat": 1.3506976109596494,
+      "lon": 103.68245309218337,
+      "classification": "healthy",
+      "confidence": 0.81,
+      "timestamp": "2026-09-22T19:51:14",
+      "id": 295
+    },
+    {
+      "waypoint": "WP-124",
+      "lat": 1.3500795696199597,
+      "lon": 103.68279881365713,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:51:24",
+      "id": 296
+    },
+    {
+      "waypoint": "WP-125",
+      "lat": 1.3505460917216567,
+      "lon": 103.68241591100556,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:51:34",
+      "id": 297
+    },
+    {
+      "waypoint": "WP-126",
+      "lat": 1.3503708170228188,
+      "lon": 103.68247834409144,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:51:44",
+      "id": 298
+    },
+    {
+      "waypoint": "WP-127",
+      "lat": 1.3503666337365652,
+      "lon": 103.6820440614624,
+      "classification": "early_blight",
+      "confidence": 0.76,
+      "timestamp": "2026-09-22T19:51:54",
+      "id": 299
+    },
+    {
+      "waypoint": "WP-128",
+      "lat": 1.3501666104472008,
+      "lon": 103.6827351583739,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:52:04",
+      "id": 300
+    },
+    {
+      "waypoint": "WP-129",
+      "lat": 1.3506497059482336,
+      "lon": 103.68229421812943,
+      "classification": "healthy",
+      "confidence": 0.87,
+      "timestamp": "2026-09-22T19:52:14",
+      "id": 301
+    },
+    {
+      "waypoint": "WP-130",
+      "lat": 1.3504368619483773,
+      "lon": 103.6823635408207,
+      "classification": "early_blight",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:52:24",
+      "id": 302
+    },
+    {
+      "waypoint": "WP-131",
+      "lat": 1.350776474905741,
+      "lon": 103.68213376714549,
+      "classification": "healthy",
+      "confidence": 0.89,
+      "timestamp": "2026-09-22T19:52:34",
+      "id": 303
+    },
+    {
+      "waypoint": "WP-132",
+      "lat": 1.350244254146955,
+      "lon": 103.68270168252387,
+      "classification": "healthy",
+      "confidence": 0.78,
+      "timestamp": "2026-09-22T19:52:44",
+      "id": 304
+    },
+    {
+      "waypoint": "WP-133",
+      "lat": 1.3505860348806766,
+      "lon": 103.68229194055093,
+      "classification": "healthy",
+      "confidence": 0.91,
+      "timestamp": "2026-09-22T19:52:54",
+      "id": 305
+    },
+    {
+      "waypoint": "WP-134",
+      "lat": 1.3504379135834594,
+      "lon": 103.68252429740242,
+      "classification": "healthy",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:53:04",
+      "id": 306
+    },
+    {
+      "waypoint": "WP-135",
+      "lat": 1.3505923135093576,
+      "lon": 103.68230994064706,
+      "classification": "healthy",
+      "confidence": 0.96,
+      "timestamp": "2026-09-22T19:53:14",
+      "id": 307
+    },
+    {
+      "waypoint": "WP-136",
+      "lat": 1.3502608152580642,
+      "lon": 103.68207241147103,
+      "classification": "healthy",
+      "confidence": 0.97,
+      "timestamp": "2026-09-22T19:53:24",
+      "id": 308
+    },
+    {
+      "waypoint": "WP-137",
+      "lat": 1.3508127182338991,
+      "lon": 103.68243153695329,
+      "classification": "healthy",
+      "confidence": 0.8,
+      "timestamp": "2026-09-22T19:53:34",
+      "id": 309
+    },
+    {
+      "waypoint": "WP-138",
+      "lat": 1.3504185196907252,
+      "lon": 103.68237460278525,
+      "classification": "healthy",
+      "confidence": 0.84,
+      "timestamp": "2026-09-22T19:53:44",
+      "id": 310
+    },
+    {
+      "waypoint": "WP-139",
+      "lat": 1.3506762181845147,
+      "lon": 103.6827718467248,
+      "classification": "healthy",
+      "confidence": 0.93,
+      "timestamp": "2026-09-22T19:53:54",
+      "id": 311
+    },
+    {
+      "waypoint": "WP-140",
+      "lat": 1.3502012793771783,
+      "lon": 103.68229318124358,
+      "classification": "healthy",
+      "confidence": 0.83,
+      "timestamp": "2026-09-22T19:54:04",
+      "id": 312
+    },
+    {
+      "waypoint": "WP-141",
+      "lat": 1.3503457665889984,
+      "lon": 103.68230222726795,
+      "classification": "early_blight",
+      "confidence": 0.77,
+      "timestamp": "2026-09-22T19:54:14",
+      "id": 313
+    },
+    {
+      "waypoint": "WP-142",
+      "lat": 1.3504506226662156,
+      "lon": 103.6828025772238,
+      "classification": "early_blight",
+      "confidence": 0.95,
+      "timestamp": "2026-09-22T19:54:24",
+      "id": 314
+    },
+    {
+      "waypoint": "WP-143",
+      "lat": 1.3502583805109682,
+      "lon": 103.6824161596731,
+      "classification": "healthy",
+      "confidence": 0.82,
+      "timestamp": "2026-09-22T19:54:34",
+      "id": 315
+    }
+  ]
+}

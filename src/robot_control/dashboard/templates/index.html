@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AgriBot — Field Health Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6f4; color: #223; }
+  header { background: #1b5e20; color: #fff; padding: 14px 20px;
+           display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  .stats { display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap; }
+  .card { background: #fff; border-radius: 8px; padding: 12px 18px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.08); min-width: 120px; }
+  .card .num { font-size: 1.6rem; font-weight: 700; }
+  .card .lbl { color: #667; font-size: .8rem; text-transform: uppercase; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 20px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  #map { height: 480px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  table { width: 100%; border-collapse: collapse; background: #fff;
+          border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+          font-size: .9rem; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #1b5e20; color: #fff; }
+  tr.diseased td { background: #ffebee; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: .75rem; font-weight: 600; }
+  .b-healthy  { background: #e8f5e9; color: #2e7d32; }
+  .b-diseased { background: #ffcdd2; color: #b71c1c; }
+  #updated { font-size: .75rem; opacity: .8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AgriBot Field Health</h1>
+  <div>Mission: <b id="mission">–</b> · <span id="updated">–</span></div>
+</header>
+
+<div class="stats">
+  <div class="card"><div class="num" id="st-total">0</div><div class="lbl">Plants scanned</div></div>
+  <div class="card"><div class="num" style="color:#2e7d32" id="st-healthy">0</div><div class="lbl">Healthy</div></div>
+  <div class="card"><div class="num" style="color:#b71c1c" id="st-diseased">0</div><div class="lbl">Diseased</div></div>
+  <div class="card"><div class="num" id="st-pct">0%</div><div class="lbl">Disease rate</div></div>
+</div>
+
+<main>
+  <div id="map"></div>
+  <div>
+    <table>
+      <thead><tr><th>#</th><th>Waypoint</th><th>Time</th><th>Class</th><th>Conf.</th><th>Lat</th><th>Lon</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Map centered on your demo field — change lat/lon to your greenhouse
+const map = L.map('map').setView([1.35042, 103.68241], 18);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+let markers = [];
+function esc(s) {
+  return String(s).replace(/[&<>"]/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function refresh() {
+  try {
+    const [r, s] = await Promise.all([fetch('/api/results'), fetch('/api/stats')]);
+    const data = await r.json(), stats = await s.json();
+
+    document.getElementById('mission').textContent = stats.mission;
+    document.getElementById('updated').textContent = 'updated ' + stats.updated;
+    document.getElementById('st-total').textContent = stats.total;
+    document.getElementById('st-healthy').textContent = stats.healthy;
+    document.getElementById('st-diseased').textContent = stats.diseased;
+    document.getElementById('st-pct').textContent = stats.pct_diseased + '%';
+
+    document.getElementById('tbody').innerHTML = data.results.slice().reverse().map(x => {
+      const dis = x.classification !== 'healthy';
+      return `<tr class="${dis ? 'diseased' : ''}"><td>${x.id}</td>` +
+        `<td>${esc(x.waypoint)}</td><td>${esc(x.timestamp)}</td>` +
+        `<td><span class="badge ${dis ? 'b-diseased' : 'b-healthy'}">${esc(x.classification)}</span></td>` +
+        `<td>${(x.confidence * 100).toFixed(0)}%</td>` +
+        `<td>${x.lat.toFixed(5)}</td><td>${x.lon.toFixed(5)}</td></tr>`;
+    }).join('');
+
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    data.results.forEach(x => {
+      const dis = x.classification !== 'healthy';
+      const m = L.circleMarker([x.lat, x.lon], {
+        radius: 8,
+        color: dis ? '#b71c1c' : '#2e7d32',
+        fillColor: dis ? '#ef5350' : '#66bb6a',
+        fillOpacity: 0.85
+      }).addTo(map).bindPopup(
+        `<b>${esc(x.waypoint)}</b><br>${esc(x.classification)} ` +
+        `(${(x.confidence * 100).toFixed(0)}%)`);
+      markers.push(m);
+    });
+  } catch (e) { console.error('refresh failed', e); }
+}
+refresh();
+setInterval(refresh, 5000);   // live auto-refresh — nice for demo day
+</script>
+</body>
+</html>
