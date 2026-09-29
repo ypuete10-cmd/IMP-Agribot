@@ -61,6 +61,11 @@ Assembled robot chassis with motors, standoffs, and wiring (as of 28/09/2026):
 
 <img width="250" alt="Chassis earlier build state - 25 Sep" src="https://github.com/user-attachments/assets/90feef26-fb92-47be-a35c-5228b35c2a56" />
 
+<img width="250" alt="midsection view" src="https://github.com/user-attachments/assets/97137316-677a-4c25-9b32-94fe4dc48960" />
+
+<img width="250" alt="overall temporary view" src="https://github.com/user-attachments/assets/05d72e1d-3694-49c9-a5b1-b1866c871490" />
+
+
 ## Repository Structure
 
 ```
