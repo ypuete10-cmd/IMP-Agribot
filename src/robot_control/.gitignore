@@ -4,5 +4,5 @@ log/
 __pycache__/
 *.jpg
 *.png
-!models/*.json
-
+!docs/figures/*.jpg
+!docs/figures/*.png
