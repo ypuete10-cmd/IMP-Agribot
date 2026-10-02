@@ -4,6 +4,52 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 02/10/2026 — Motor driver first run (left side)
+
+First successful motor power-up. L298N #1 wired to GPIO 12 (ENA/PWM),
+16 (IN1), 20 (IN2) driving both left motors. `motor_driver` node
+subscribes to /cmd_vel; teleop_twist_keyboard drives the wheels.
+
+Two fixes discovered during bring-up:
+- Motors need minimum ~25% PWM to overcome static friction — threshold
+  coded into motor_driver.py
+- GPIO busy error on restart — old motor_driver process must be killed
+  before relaunching
+
+Power from 12V wall adapter via HW-688 buck converter (12V→5V logic).
+Right side (L298N #2) GPIO pins assigned, wiring next.
+
+![L298N wiring close-up — GPIO 12/16/20 connected, red power LED on](https://github.com/user-attachments/assets/10d18684-0527-4309-abd0-4ec2ced57a15)
+
+![Pi 5 mounted on standoffs with L298N drivers and power wiring](https://github.com/user-attachments/assets/6ef2a59a-cf37-44f9-af28-829e5eb57678)
+
+---
+
+## 01/10/2026 — Model retrained and deployed (domain-gap fix)
+
+Retrained MobileNetV3-Small with 16 classes (15 diseases + Other
+background), trimming the Other class to 800 images to fix the
+over-prediction bias found last week. Webcam leaf captures were sorted
+into their class folders and included in the training set alongside the
+rebalanced Other class. Final val_accuracy: 90.13%
+(10 frozen + 5 fine-tune epochs). Converted to TFLite float16
+(1,876 KB) and deployed to the Pi 5.
+
+End-to-end verification: clear leaf images classify at 96–99%
+confidence; walls/desks correctly rejected as Other /
+unknown_no_plant (0.60 threshold); /plant_health topic publishes
+{class, confidence} JSON as designed.
+
+Known issue noted for report: leaf images shown on a phone screen
+occasionally misclassify due to LCD moiré — printed photos or real
+leaves recommended for the demo.
+
+![Training run - 16-class retrain reaching 90.1% val accuracy](https://github.com/user-attachments/assets/1e81b9d5-9931-424b-b7f9-241992538e5b)
+
+![TFLite model exported - 1876 KB](https://github.com/user-attachments/assets/34875b44-1194-40c1-ae49-b44538a3f968)
+
+---
+
 ## 30/09/2026 — Electronics installation + live inference test
 
 Pi 5, both L298N motor drivers, and webcam installed on the top deck.
