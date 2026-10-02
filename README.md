@@ -25,8 +25,8 @@ results displayed on a farmer-facing dashboard.
 
 - **ROS2 package `robot_control`** — camera stream, capture, motor driver,
   and AI inference nodes
-- **AI pipeline** — PlantVillage → 15-class subset → MobileNetV3-Small
-  transfer learning → TFLite float16
+- **AI pipeline** — PlantVillage → 16-class subset (15 diseases + Other) →
+  MobileNetV3-Small transfer learning → TFLite float16 (~90% val accuracy)
 - **Flask dashboard** — results table + GPS health map (auto-refresh)
 
 ## Results
@@ -40,9 +40,10 @@ phone (30/09/2026):
 
 ![TFLite benchmark: 3.5 ms/frame, 282 FPS](https://github.com/user-attachments/assets/e3fa8fbb-48d4-4445-a93a-bd0293608a8d)
 
-## Build Progress
+## Documentation
 
-Full build history with photos: **[docs/BUILD_LOG.md](docs/BUILD_LOG.md)**
+- **[Build Log](docs/BUILD_LOG.md)** — dated progress history with photos
+- **[Project Status](docs/STATUS.md)** — current progress, GPIO pinout, critical path
 
 ## Repository Structure
 
@@ -50,6 +51,7 @@ Full build history with photos: **[docs/BUILD_LOG.md](docs/BUILD_LOG.md)**
 robot_control/
 ├── robot_control/        # ROS2 nodes (camera, motors, AI inference)
 ├── dashboard/            # Flask dashboard + result logger
+├── models/               # plant_health.tflite + class names
 ├── training/             # PlantVillage training pipeline scripts
-└── docs/                 # Build log + figures
+└── docs/                 # Build log, status, command reference, figures
 ```
