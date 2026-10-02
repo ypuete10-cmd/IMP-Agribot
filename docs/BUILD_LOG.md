@@ -4,6 +4,27 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 02/10/2026 — Motor driver first run (left side)
+
+First successful motor power-up. L298N #1 wired to GPIO 12 (ENA/PWM),
+16 (IN1), 20 (IN2) driving both left motors. `motor_driver` node
+subscribes to /cmd_vel; teleop_twist_keyboard drives the wheels.
+
+Two fixes discovered during bring-up:
+- Motors need minimum ~25% PWM to overcome static friction — threshold
+  coded into motor_driver.py
+- GPIO busy error on restart — old motor_driver process must be killed
+  before relaunching
+
+Power from 12V wall adapter via HW-688 buck converter (12V→5V logic).
+Right side (L298N #2) GPIO pins assigned, wiring next.
+
+![L298N wiring close-up — GPIO 12/16/20 connected, red power LED on](https://github.com/user-attachments/assets/10d18684-0527-4309-abd0-4ec2ced57a15)
+
+![Pi 5 mounted on standoffs with L298N drivers and power wiring](https://github.com/user-attachments/assets/6ef2a59a-cf37-44f9-af28-829e5eb57678)
+
+---
+
 ## 01/10/2026 — Model retrained and deployed (domain-gap fix)
 
 Retrained MobileNetV3-Small with 16 classes (15 diseases + Other
