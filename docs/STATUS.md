@@ -33,6 +33,10 @@ robot_control/
 5. **4-wheel drive teleop** — dual L298N via breadboard signal sharing;
    forward and turn-in-place verified with teleop_twist_keyboard
 6. GitHub sync working (Pi + web edits merged)
+7. **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
+   starts motor driver, rosbridge, camera stream, and dashboard together
+8. **Web drive control** — browser-based teleop at `/control` with WASD,
+   speed slider, auto-stop, no hardcoded IP
 
 ## Hardware Status
 
@@ -42,6 +46,7 @@ robot_control/
 | USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired — Ubuntu 24.04 incompatible) |
 | Dual L298N motor drivers | ✅ Wired, 4-wheel drive working (breadboard signal sharing) |
 | Breadboard (signal + power rails) | ✅ 6 GPIO → both boards; 5V/GND/12V distributed |
+| ros-jazzy-rosbridge-suite | ✅ Installed |
 | 3S LiPo 5500mAh | Purchased; running on 12V wall adapter until charger/safe bag arrive |
 | NEO-8M GPS | Purchased, not wired (UART) |
 | MPU9250 IMU | Purchased, not wired (I2C) |
@@ -51,12 +56,13 @@ robot_control/
 ## Critical Path (remaining ~8 weeks)
 
 1. ~~Wire L298N #2 → full 4-wheel drive teleop~~ ✅ DONE 03/10
-2. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
-3. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
-4. Wire encoders → odometry for nav2
-5. Dashboard: replace simulated scans with real GPS + /plant_health
-6. nav2 + EKF integration
-7. Report writing + demo prep
+2. ~~One-command bringup + web drive dashboard~~ ✅ DONE 06/10
+3. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
+4. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
+5. Wire encoders → odometry for nav2
+6. Dashboard: replace simulated scans with real GPS + /plant_health
+7. nav2 + EKF integration
+8. Report writing + demo prep
 
 ## GPIO Pinout
 
@@ -82,6 +88,9 @@ robot_control/
 - tflite-runtime has no Python 3.12 wheels → ai-edge-litert; NumPy pinned to 1.26.4
 - Camera device number changes after reboot → re-verify /dev/videoN before use
 - WSL cannot SSH to Pi on hotspot → use Windows PowerShell
+- GPIO busy on motor restart → one-command bringup with Ctrl+C cleanup
+- apt 404 on ROS packages → `sudo apt update` first (stale cache)
+- 'bringup.launch.py not found' → colcon build after setup.py fix
 
 ## Notes for Report
 
