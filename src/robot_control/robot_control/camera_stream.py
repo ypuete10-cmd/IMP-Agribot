@@ -31,5 +31,9 @@ def video_feed():
 def main(args=None):
     app.run(host='0.0.0.0', port=5000, debug=False)
 
+@app.route('/control')
+def control():
+    return open('/home/yvette_pi/control.html').read()
+
 if __name__ == '__main__':
     main()
