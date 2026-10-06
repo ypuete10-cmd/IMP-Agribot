@@ -3,6 +3,32 @@
 Dated progress log with photos. Newest entries at the top.
 
 ---
+## 06/10/2026 — Web drive dashboard + one-command bringup
+
+Added `bringup.launch.py` — one command starts motor_driver,
+rosbridge_server, and Flask camera_stream + dashboard together:
+`ros2 launch robot_control bringup.launch.py`. Ctrl+C stops everything
+cleanly, preventing the GPIO-busy orphan issue.
+
+Built `control.html` web drive page (served at /control):
+- Buttons + WASD/arrow keys + speed slider + embedded camera feed
+- roslib.js → WebSocket → rosbridge (port 9090) → publishes /cmd_vel
+  at 10 Hz while held (matches the 1 s motor watchdog)
+- Auto-stop on button release / tab blur
+- No hardcoded IP — uses `location.hostname`, survives hotspot IP changes
+
+Updated `camera_stream.py` with `@app.route('/control')`.
+Updated `setup.py` with launch `data_files` entry (share/robot_control/launch).
+Updated `Pi_5_Command_Reference.docx` to v6Oct (Section 12 Web Drive
+Control, motors marked DONE, bringup in Section 8, 5 new quick fixes).
+
+Hardware already verified: 4-wheel drivetrain (forward, turn-in-place
+left/right all correct). Architecture: one L298N channel per wheel,
+breadboard signal sharing, all 4 ENA/ENB jumpers off.
+
+<img width="4080" height="2296" alt="20261006_200509" src="https://github.com/user-attachments/assets/e1c45804-442a-4d3f-b5a7-b3dfa4944acc" />
+
+
 
 ## 03/10/2026 — 4-wheel drive complete (dual L298N per-channel wiring)
 
