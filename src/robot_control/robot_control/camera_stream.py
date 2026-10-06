@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import cv2
 from flask import Flask, Response
+import os
 
 app = Flask(__name__)
 
@@ -33,7 +34,8 @@ def main(args=None):
 
 @app.route('/control')
 def control():
-    return open('/home/yvette_pi/control.html').read()
+    control_path = os.path.join(os.path.dirname(__file__), '..', 'dashboard', 'drive', 'control.html')
+    return open(os.path.abspath(control_path)).read()
 
 if __name__ == '__main__':
     main()
