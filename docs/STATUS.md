@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 2 October 2026 · Viva: 2 December 2026
+Last updated: 3 October 2026 · Viva: 2 December 2026
 
 ---
 
@@ -30,8 +30,8 @@ robot_control/
    topic verified end-to-end with confidence threshold (0.60 → unknown_no_plant)
 4. **Farmer dashboard** — results table + GPS health map (simulated scans;
    real GPS+AI hookup pending)
-5. Motor driver node on /cmd_vel; teleop drives **left side** (right L298N
-   not yet wired)
+5. **4-wheel drive teleop** — dual L298N via breadboard signal sharing;
+   forward and turn-in-place verified with teleop_twist_keyboard
 6. GitHub sync working (Pi + web edits merged)
 
 ## Hardware Status
@@ -40,18 +40,18 @@ robot_control/
 |------|--------|
 | Pi 5 (Ubuntu 24.04, ROS2 Jazzy) | ✅ Running |
 | USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired — Ubuntu 24.04 incompatible) |
-| L298N #1 (left motors) | ✅ Wired, spinning (min 25% PWM for static friction) |
-| L298N #2 (right motors) | ⚠️ GPIO assigned, **not wired** |
+| Dual L298N motor drivers | ✅ Wired, 4-wheel drive working (breadboard signal sharing) |
+| Breadboard (signal + power rails) | ✅ 6 GPIO → both boards; 5V/GND/12V distributed |
 | 3S LiPo 5500mAh | Purchased; running on 12V wall adapter until charger/safe bag arrive |
 | NEO-8M GPS | Purchased, not wired (UART) |
 | MPU9250 IMU | Purchased, not wired (I2C) |
 | AHT20 + BMP280 | Purchased, not wired (I2C) |
 | 4× wheel encoders | Purchased, not wired |
 
-## Critical Path (remaining ~9 weeks)
+## Critical Path (remaining ~8 weeks)
 
-1. Wire L298N #2 → full 4-wheel drive teleop
-2. Wire GPS (UART, enable_uart=1) → verify /fix topic
+1. ~~Wire L298N #2 → full 4-wheel drive teleop~~ ✅ DONE 03/10
+2. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
 3. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
 4. Wire encoders → odometry for nav2
 5. Dashboard: replace simulated scans with real GPS + /plant_health
@@ -62,12 +62,12 @@ robot_control/
 
 | GPIO | Pin | Function | Status |
 |------|-----|----------|--------|
-| 12 | 32 | L298N #1 ENA (PWM, left) | ✅ Wired |
-| 16 | 36 | L298N #1 IN1 | ✅ Wired |
-| 20 | 38 | L298N #1 IN2 | ✅ Wired |
-| 18 | 12 | L298N #2 ENA (PWM, right) | ⬜ Not wired |
-| 25 | 22 | L298N #2 IN1 | ⬜ Not wired |
-| 26 | 37 | L298N #2 IN2 | ⬜ Not wired |
+| 12 | 32 | ENA both boards (PWM, left speed) | ✅ Wired |
+| 16 | 36 | IN1 both boards (left dir) | ✅ Wired |
+| 20 | 38 | IN2 both boards (left dir) | ✅ Wired |
+| 18 | 12 | ENB both boards (PWM, right speed) | ✅ Wired |
+| 25 | 22 | IN3 both boards (right dir) | ✅ Wired |
+| 26 | 37 | IN4 both boards (right dir) | ✅ Wired |
 | 2/3 | 3/5 | I2C (IMU, AHT20, BMP280) | ⬜ Not wired |
 | 14/15 | 8/10 | UART (GPS) | ⬜ Not wired |
 
@@ -76,6 +76,9 @@ robot_control/
 - Pi Camera v2 incompatible with Ubuntu 24.04 → USB webcam (V4L2)
 - GPIO busy error → kill old motor_driver process before restart
 - Motors need ≥25% PWM to overcome static friction → threshold coded in node
+- ENA/ENB miswired during bring-up → rewired to align with IN pins
+- Front wheels spun backwards → swapped motor lead polarity
+- Front/back turning inversion → breadboard second output wire per GPIO row
 - tflite-runtime has no Python 3.12 wheels → ai-edge-litert; NumPy pinned to 1.26.4
 - Camera device number changes after reboot → re-verify /dev/videoN before use
 - WSL cannot SSH to Pi on hotspot → use Windows PowerShell
@@ -84,7 +87,8 @@ robot_control/
 
 - Chassis is open-source adapted (Thingiverse), not designed from scratch —
   **must cite original source** in references
-- Custom work: Pi mounting tray, camera mast, two-deck layout, wiring integration
+- Custom work: Pi mounting tray, camera mast, two-deck layout, wiring integration,
+  breadboard signal-sharing architecture (dual L298N per-channel)
 - "Future improvements" section: deferred sensors (rain, soil, air quality),
   solar panel, IP54 enclosure
 - PlantVillage dataset © original authors (CC BY-SA) — attribute in report
