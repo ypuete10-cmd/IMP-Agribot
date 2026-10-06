@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+<style>
+  body { font-family: sans-serif; background: #1a1a2e; color: #eee;
+         text-align: center; margin: 0; padding: 10px; }
+  #status { padding: 6px; font-weight: bold; border-radius: 6px; }
+  .ok  { background: #14532d; } .bad { background: #7f1d1d; }
+  iframe { width: 100%; height: 35vh; border: 0; border-radius: 8px; }
+  .pad { display: grid; grid-template-columns: repeat(3, 90px);
+         gap: 8px; justify-content: center; margin-top: 15px; }
+  button { height: 70px; font-size: 28px; border: 0; border-radius: 10px;
+           background: #0ea5e9; color: white; touch-action: none; }
+  button:active { background: #f59e0b; }
+  #stop { background: #dc2626; grid-column: 2; }
+</style>
+</head>
+<body>
+
+<div id="status" class="bad">DISCONNECTED</div>
+<iframe src="/"></iframe>
+
+<div class="pad">
+  <span></span><button id="fwd">▲</button><span></span>
+  <button id="left">◀</button><button id="stop">■</button><button id="right">▶</button>
+  <span></span><button id="rev">▼</button><span></span>
+</div>
+<p>WASD / arrow keys also work. Speed:
+<input type="range" id="speed" min="0.2" max="0.8" step="0.1" value="0.4"></p>
+
+<script>
+const ros = new ROSLIB.Ros({ url: 'ws://' + location.hostname + ':9090' });
+const status = document.getElementById('status');
+
+ros.on('connection', () => { status.textContent = 'CONNECTED'; status.className = 'ok'; });
+ros.on('error',      () => { status.textContent = 'ERROR - is rosbridge running?'; status.className = 'bad'; });
+ros.on('close',      () => { status.textContent = 'DISCONNECTED'; status.className = 'bad'; stop(); });
+
+const cmdVel = new ROSLIB.Topic({
+  ros: ros, name: '/cmd_vel', messageType: 'geometry_msgs/Twist'
+});
+
+let vx = 0, vz = 0;
+setInterval(() => {
+  cmdVel.publish(new ROSLIB.Message({
+    linear:  { x: vx, y: 0, z: 0 },
+    angular: { x: 0, y: 0, z: vz }
+  }));
+}, 100);
+
+const spd = () => parseFloat(document.getElementById('speed').value);
+function drive(x, z) { vx = x; vz = z; }
+function stop()       { vx = 0; vz = 0; }
+
+function bind(id, x, z) {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); drive(x * spd(), z * spd()); });
+  b.addEventListener('pointerup', stop);
+  b.addEventListener('pointerleave', stop);
+}
+bind('fwd',   1,  0);
+bind('rev',  -1,  0);
+bind('left',  0,  1);
+bind('right', 0, -1);
+document.getElementById('stop').addEventListener('pointerdown', stop);
+
+const keys = { w: [1,0], s: [-1,0], a: [0,1], d: [0,-1] };
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (keys[k]) drive(keys[k][0] * spd(), keys[k][1] * spd());
+  if (k === ' ') stop();
+});
+window.addEventListener('keyup', e => { if (keys[e.key.toLowerCase()]) stop(); });
+
+window.addEventListener('blur', stop);
+window.addEventListener('beforeunload', stop);
+</script>
+
+</body>
+</html>
