@@ -4,6 +4,45 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 03/10/2026 — 4-wheel drive complete (dual L298N per-channel wiring)
+
+Wired the second L298N (right side). Final architecture: **front L298N
+drives front-left (channel A) + front-right (channel B); back L298N
+drives rear-left (channel A) + rear-right (channel B)** — one channel
+per wheel, no motors in parallel (avoids exceeding 2A channel rating if
+one motor stalls).
+
+**Signal sharing via breadboard:** 6 GPIO signals each feed the same
+channel letter on BOTH boards through breadboard junction rows:
+- GPIO12 (Pin 32) → ENA on both boards (left speed, PWM)
+- GPIO16 (Pin 36) → IN1 both; GPIO20 (Pin 38) → IN2 both (left direction)
+- GPIO18 (Pin 12) → ENB on both boards (right speed, PWM)
+- GPIO25 (Pin 22) → IN3 both; GPIO26 (Pin 37) → IN4 both (right direction)
+- All 4 ENA/ENB jumpers removed (Pi PWM controls speed)
+
+**Power distribution via breadboard rails:** buck IN− → blue rail → both
+L298N GND + Pi Pin 6 (common ground); buck OUT+ (5V) → red rail → both
+L298N +5V logic; L298N +12V tapped from buck IN+ screw terminal. Pi 5
+still powered separately via USB-C.
+
+**Issues fixed during bring-up:**
+1. ENA/ENB wires landed on wrong header pins → rewired to align with IN pins
+2. Front wheels spun backwards → swapped motor lead polarity on front board
+3. Front/back turning inversion → added second output wire per breadboard
+   row so every GPIO reaches the same lettered pin on both boards
+
+**Test results:** forward (linear.x=0.5) — all 4 wheels correct;
+turn-in-place (angular.z=0.5) — left/right counter-rotate correctly.
+`motor_driver.py` required **zero code changes**.
+
+![Completed wiring — Pi 5, dual L298N, breadboard signal sharing](https://github.com/user-attachments/assets/452b5b4d-3c04-4d60-8cad-738eb7868a78)
+
+![Breadboard junction rows — GPIO 12/16/18/20/25/26 split to both boards](https://github.com/user-attachments/assets/ff44e6ab-d12a-4a93-bf8c-5e72cf7696f4)
+
+![All four wheels with power and signal wiring](https://github.com/user-attachments/assets/400571d8-c496-4c05-a628-9dad00e9824d)
+
+---
+
 ## 02/10/2026 — Motor driver first run (left side)
 
 First successful motor power-up. L298N #1 wired to GPIO 12 (ENA/PWM),
