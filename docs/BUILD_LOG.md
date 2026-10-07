@@ -3,6 +3,49 @@
 Dated progress log with photos. Newest entries at the top.
 
 ---
+
+## 07/10/2026 — Encoder odometry complete (4-wheel, cmd_vel direction fusion)
+
+Wired 4× LM393 encoder modules (VCC 3.3V Pin 1, GND blue rail, D0 to
+GPIO 5/6/13/19). D0 used; A0 unconnected. Pull-up enabled in software.
+
+`encoder_node.py` publishes:
+- `/wheel_ticks` (Int32MultiArray, per-wheel cumulative counts, 10 Hz)
+- `/odom` (nav_msgs/Odometry + odom→base_link TF, 10 Hz)
+
+**Direction fusion:** encoders are count-only (single channel), so
+direction is inferred from `/cmd_vel` using the same diff-drive mixing
+as `motor_driver`. This is the standard approach used by
+robot_localization. A **deadband patch** prevents zero commands from
+flipping direction sign — stops coasting ticks from being counted
+backwards.
+
+**Calibration:** ticks_per_meter = 90.0. Measured at 80.0 setting:
+1.128 odom per 1.00 m actual. 64 ticks/rev hand-measured.
+
+**Performance:** zero drift at rest (stable plateaus), smooth
+bidirectional integration, ±10% distance accuracy per leg. Documented
+as a known limitation — GPS fusion in nav2 will correct drift globally.
+
+**Issues fixed during bring-up:**
+1. GPIO busy on restart → `pkill -f encoder_node` before relaunch
+2. Count-only encoders cannot sense direction → fused from `/cmd_vel`
+3. Zero-cmd direction flip → deadband patch (`|cmd| &gt; 0.01` updates dir)
+4. `calibrate.py` script retired → prompt timing confused leg boundaries;
+   live streaming `ros2 topic echo /odom` is the reliable method
+
+**GPIO budget now:** 14 used, 12 spare
+- Motors: 12/16/20 (left), 18/25/26 (right)
+- Encoders: 5/6/13/19
+- Reserved: 14/15 (GPS UART), 2/3 (I2C IMU + env sensors)
+- Spare: 4/7/8/9/10/11/17/21/22/23/24/27
+
+![Encoder modules wired — LM393 D0 to GPIO 5/6/13/19, 3.3V VCC](https://github.com/user-attachments/assets/9fffb2ad-3112-46aa-88a6-0cb6f2c4303b)
+
+![Encoder test — terminal showing /odom topic with forward and return counts](https://github.com/user-attachments/assets/6c747bc8-e93b-446b-8147-97b6f27c1fd0)
+
+---
+
 ## 06/10/2026 — Web drive dashboard + one-command bringup
 
 Added `bringup.launch.py` — one command starts motor_driver,
@@ -26,9 +69,11 @@ Hardware already verified: 4-wheel drivetrain (forward, turn-in-place
 left/right all correct). Architecture: one L298N channel per wheel,
 breadboard signal sharing, all 4 ENA/ENB jumpers off.
 
-<img width="4080" height="2296" alt="20261006_200509" src="https://github.com/user-attachments/assets/e1c45804-442a-4d3f-b5a7-b3dfa4944acc" />
+![L298N wiring close-up — GPIO 12/16/20 connected, red power LED on](https://github.com/user-attachments/assets/10d18684-0527-4309-abd0-4ec2ced57a15)
 
+![Pi 5 mounted on standoffs with L298N drivers and power wiring](https://github.com/user-attachments/assets/6ef2a59a-cf37-44f9-af28-829e5eb57678)
 
+---
 
 ## 03/10/2026 — 4-wheel drive complete (dual L298N per-channel wiring)
 
