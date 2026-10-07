@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 3 October 2026 · Viva: 2 December 2026
+Last updated: 7 October 2026 · Viva: 2 December 2026
 
 ---
 
@@ -14,6 +14,7 @@ robot_control/
 │   ├── camera_stream.py     # Flask MJPEG stream (port 5000)
 │   ├── capture.py           # single photo capture
 │   ├── ai_inference.py      # TFLite inference, publishes /plant_health
+│   ├── encoder_node.py      # 4-wheel encoder counting + odometry + TF
 │   └── camera_publisher.py  # /camera/image_raw (integration pending)
 ├── dashboard/               # Flask farmer dashboard (port 8080)
 ├── models/                  # plant_health.tflite, class_names.json
@@ -31,12 +32,14 @@ robot_control/
 4. **Farmer dashboard** — results table + GPS health map (simulated scans;
    real GPS+AI hookup pending)
 5. **4-wheel drive teleop** — dual L298N via breadboard signal sharing;
-   forward and turn-in-place verified with teleop_twist_keyboard
-6. GitHub sync working (Pi + web edits merged)
-7. **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
+   forward and turn-in-place verified with teleop_twist_keyboard and web control
+6. **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
    starts motor driver, rosbridge, camera stream, and dashboard together
-8. **Web drive control** — browser-based teleop at `/control` with WASD,
+7. **Web drive control** — browser-based teleop at `/control` with WASD,
    speed slider, auto-stop, no hardcoded IP
+8. **Encoder odometry** — 4× LM393 encoders wired (GPIO 5/6/13/19), publishes
+   /wheel_ticks + /odom + odom→base_link TF; calibrated 90 ticks/m,
+   ±10% per-leg accuracy, zero drift at rest
 
 ## Hardware Status
 
@@ -46,23 +49,25 @@ robot_control/
 | USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired — Ubuntu 24.04 incompatible) |
 | Dual L298N motor drivers | ✅ Wired, 4-wheel drive working (breadboard signal sharing) |
 | Breadboard (signal + power rails) | ✅ 6 GPIO → both boards; 5V/GND/12V distributed |
+| 4× LM393 wheel encoders | ✅ Wired (GPIO 5/6/13/19), 3.3V, pull-up; odometry publishing |
 | ros-jazzy-rosbridge-suite | ✅ Installed |
 | 3S LiPo 5500mAh | Purchased; running on 12V wall adapter until charger/safe bag arrive |
 | NEO-8M GPS | Purchased, not wired (UART) |
 | MPU9250 IMU | Purchased, not wired (I2C) |
 | AHT20 + BMP280 | Purchased, not wired (I2C) |
-| 4× wheel encoders | Purchased, not wired |
+| 2× HC-SR04 ultrasonic | From lab, not wired |
 
-## Critical Path (remaining ~8 weeks)
+## Critical Path (remaining ~7.5 weeks)
 
 1. ~~Wire L298N #2 → full 4-wheel drive teleop~~ ✅ DONE 03/10
 2. ~~One-command bringup + web drive dashboard~~ ✅ DONE 06/10
-3. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
-4. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
-5. Wire encoders → odometry for nav2
-6. Dashboard: replace simulated scans with real GPS + /plant_health
-7. nav2 + EKF integration
-8. Report writing + demo prep
+3. ~~Encoder odometry (4-wheel, signed counts, TF)~~ ✅ DONE 07/10
+4. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
+5. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
+6. robot_localization EKF (fuse encoders + IMU + GPS)
+7. nav2 waypoint navigation
+8. Dashboard: replace simulated scans with real GPS + /plant_health
+9. Report writing + demo prep
 
 ## GPIO Pinout
 
@@ -74,32 +79,40 @@ robot_control/
 | 18 | 12 | ENB both boards (PWM, right speed) | ✅ Wired |
 | 25 | 22 | IN3 both boards (right dir) | ✅ Wired |
 | 26 | 37 | IN4 both boards (right dir) | ✅ Wired |
+| 5 | 29 | Encoder FL (D0, 3.3V) | ✅ Wired |
+| 6 | 31 | Encoder RL (D0, 3.3V) | ✅ Wired |
+| 13 | 33 | Encoder FR (D0, 3.3V) | ✅ Wired |
+| 19 | 35 | Encoder RR (D0, 3.3V) | ✅ Wired |
 | 2/3 | 3/5 | I2C (IMU, AHT20, BMP280) | ⬜ Not wired |
 | 14/15 | 8/10 | UART (GPS) | ⬜ Not wired |
+
+**GPIO budget:** 14 used, 12 spare (4/7/8/9/10/11/17/21/22/23/24/27)
 
 ## Known Issues / Fixes Applied
 
 - Pi Camera v2 incompatible with Ubuntu 24.04 → USB webcam (V4L2)
-- GPIO busy error → kill old motor_driver process before restart
+- GPIO busy error → kill old process before restart (motor, encoder)
 - Motors need ≥25% PWM to overcome static friction → threshold coded in node
 - ENA/ENB miswired during bring-up → rewired to align with IN pins
 - Front wheels spun backwards → swapped motor lead polarity
 - Front/back turning inversion → breadboard second output wire per GPIO row
+- Count-only encoders cannot sense direction → fused from /cmd_vel
+- Zero-cmd direction flip caused coasting miscounts → deadband patch (|cmd| &gt; 0.01)
 - tflite-runtime has no Python 3.12 wheels → ai-edge-litert; NumPy pinned to 1.26.4
 - Camera device number changes after reboot → re-verify /dev/videoN before use
 - WSL cannot SSH to Pi on hotspot → use Windows PowerShell
-- GPIO busy on motor restart → one-command bringup with Ctrl+C cleanup
-- apt 404 on ROS packages → `sudo apt update` first (stale cache)
-- 'bringup.launch.py not found' → colcon build after setup.py fix
 
 ## Notes for Report
 
 - Chassis is open-source adapted (Thingiverse), not designed from scratch —
   **must cite original source** in references
 - Custom work: Pi mounting tray, camera mast, two-deck layout, wiring integration,
-  breadboard signal-sharing architecture (dual L298N per-channel)
+  breadboard signal-sharing architecture (dual L298N per-channel), encoder
+  odometry with cmd_vel direction fusion, deadband patch for coasting drift
 - "Future improvements" section: deferred sensors (rain, soil, air quality),
   solar panel, IP54 enclosure
 - PlantVillage dataset © original authors (CC BY-SA) — attribute in report
 - Known demo caveat: phone-screen leaf images may misclassify (LCD moiré) —
   use printed photos or real leaves for the viva demo
+- Encoder limitation: ±10% per-leg distance accuracy; GPS fusion in nav2
+  will correct drift globally
