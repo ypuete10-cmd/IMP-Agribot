@@ -31,6 +31,7 @@ setup(
             'capture_image = robot_control.capture:main',
             'camera_stream = robot_control.camera_stream:main',
             'ai_inference = robot_control.ai_inference:main',
+            'encoder_node = robot_control.encoder_node:main',
         ],
     },
 )
