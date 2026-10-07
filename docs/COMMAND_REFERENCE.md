@@ -1,8 +1,10 @@
 # Pi 5 Command Reference
 
-*Updated: 22 Sep 2026 — adds AI inference node (TFLite on Pi CPU), model training pipeline (Windows laptop), ai-edge-litert deployment notes*
+*Updated: 6 Oct 2026 — 4-wheel drivetrain complete (forward + turn verified), web drive dashboard via rosbridge, one-command bringup launch file*
 
-Replace `[PI_IP]` with the actual Pi IP address (usually 10.251.117.169 on the current network). The IP changes when you switch networks.
+Replace `[PI_IP]` with the actual Pi IP address. The IP changes when you switch networks. (Tip: the hostname `yvette-pi5.local` may also work from Windows browsers/SSH — try it if the IP changed and you don't want to look it up.)
+
+---
 
 ## 1. SSH Access to Raspberry Pi 5
 
@@ -17,6 +19,8 @@ If SSH fails, the IP may have changed. Check on the Pi monitor:
 ```bash
 ip addr show | grep "inet 10"
 ```
+
+---
 
 ## 2. ROS2 Workspace (robot_control)
 
@@ -37,7 +41,9 @@ echo "source ~/ros2_ws/install/setup.bash" &gt;&gt; ~/.bashrc
 
 After this, every new terminal loads ROS2 and the workspace automatically. You only need `cd ~/ros2_ws` when building.
 
-&gt; Note: The farmer dashboard (Section 9) does NOT need colcon build — run its scripts directly with python3. It is not a ROS2 package.
+&gt; **Note:** The farmer dashboard (Section 11) does NOT need colcon build — run its scripts directly with python3. It is not a ROS2 package.
+
+---
 
 ## 3. Camera Commands (USB Webcam)
 
@@ -80,7 +86,9 @@ for i in range(10):
 python3 -c "import cv2; cap=cv2.VideoCapture(0); ret,frame=cap.read(); cv2.imwrite('test.jpg', frame); cap.release(); print('Saved test.jpg')"
 ```
 
-&gt; Note: Only one node can hold the camera at a time. If camera_stream or ai_inference is running, kill it before opening the camera elsewhere.
+&gt; **Note:** Only one node can hold the camera at a time. If camera_stream or ai_inference is running, kill it before opening the camera elsewhere.
+
+---
 
 ## 4. AI Inference (TFLite on Pi 5 CPU)
 
@@ -140,7 +148,9 @@ python3 ~/benchmark_tflite.py
 # Expected: ~3.5 ms/frame | ~282 FPS
 ```
 
-Behavior notes: results below 0.60 confidence are published as `unknown_no_plant` (safety net). The "Other" class covers walls/desks — trained on 800 negatives + 30 real webcam background shots. Domain gap fix (webcam leaf shots) in progress as of 22 Sep.
+&gt; **Behavior notes:** results below 0.60 confidence are published as `unknown_no_plant` (safety net). The "Other" class covers walls/desks — trained on 800 negatives + 30 real webcam background shots.
+
+---
 
 ## 5. Model Training Pipeline (Windows Laptop)
 
@@ -183,7 +193,9 @@ Then on Pi, also copy into the repo's models/ folder:
 cp ~/plant_health.tflite ~/class_names.json ~/ros2_ws/src/robot_control/models/
 ```
 
-Expected training results so far: 15-class model 89.9% val accuracy; 16-class (with Other) 89.8% val accuracy. Lab-image test: Tomato___Late_blight 89.3% / 87.5%.
+Expected training results so far: 15-class model 89.9% val accuracy; 16-class (with Other) 89.8% → 90.1% val accuracy after domain-gap fix. Lab-image test: Tomato___Late_blight 89.3% / 87.5%.
+
+---
 
 ## 6. File Transfer (Pi ↔ Windows Laptop)
 
@@ -203,6 +215,8 @@ scp -r yvette_pi@[PI_IP]:~/plant_images C:\Users\yvett\Downloads\
 scp C:\Users\yvett\plant_health.tflite yvette_pi@[PI_IP]:~/
 scp C:\Users\yvett\make_subset.py yvette_pi@[PI_IP]:~/
 ```
+
+---
 
 ## 7. System & Hardware Checks
 
@@ -236,6 +250,7 @@ ros2 topic list
 ros2 topic echo /plant_health
 ros2 topic echo /fix
 ros2 topic echo /imu/data
+ros2 topic echo /cmd_vel
 ```
 
 ### Check disk space
@@ -250,29 +265,148 @@ df -h
 python3 ~/battery_monitor.py
 ```
 
+---
+
 ## 8. Running ROS2 Nodes
 
-Open a separate terminal (SSH window) for each node.
+**RECOMMENDED (6 Oct): use the bringup launch file — one terminal starts motor driver + rosbridge + camera stream/dashboard together:**
 
 ```bash
-# Terminal 1 — Camera stream (port 5000)
+cd ~/ros2_ws
+colcon build --symlink-install  # only needed after code changes
+source install/setup.bash
+ros2 launch robot_control bringup.launch.py
+```
+
+Ctrl+C in that terminal stops everything cleanly (this also prevents the 'GPIO busy' error from orphaned motor_driver processes).
+
+Manual mode (one terminal per node) is still useful while debugging:
+
+```bash
+# Terminal 1 — Camera stream (port 5000) + dashboard page (/control)
 ros2 run robot_control camera_stream
 
 # Terminal 2 — AI inference (publishes /plant_health)
 ros2 run robot_control ai_inference
 
-# Terminal 3 — Motor driver (bring-up pending)
+# Terminal 3 — Motor driver
 ros2 run robot_control motor_driver
 
-# Terminal 4 — Monitor
+# Terminal 4 — rosbridge (needed for the web drive dashboard)
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+
+# Terminal 5 — Monitor
 ros2 topic list
 ros2 topic echo /plant_health
 ros2 topic echo /cmd_vel
+
+# Terminal 6 — Keyboard teleop (drive with keys)
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
-&gt; Note: camera_stream and ai_inference both want the webcam — run only one at a time for now (later: ai_inference subscribes to /camera/image_raw instead).
+&gt; **Note:** camera_stream and ai_inference both want the webcam — run only one at a time for now (later: ai_inference subscribes to /camera/image_raw instead).
 
-## 9. Farmer Dashboard (Farmer-Facing UI)
+---
+
+## 9. Motors (L298N + TT Motors)
+
+*Status (6 Oct): DONE — all 4 wheels drive and turn correctly. Verified: forward (linear.x = 0.5) all 4 wheels correct; turn-in-place (angular.z = 0.5) left/right counter-rotate correctly. Tested from keyboard teleop and the web dashboard.*
+
+### Architecture (final, per-channel — no motors in parallel)
+
+One channel per wheel (a stalled TT motor pair on one 2A channel could overheat it):
+
+| Board | Channel A (OUT1/OUT2) | Channel B (OUT3/OUT4) |
+|-------|----------------------|----------------------|
+| Front L298N | Front-LEFT wheel | Front-RIGHT wheel |
+| Back L298N | Rear-LEFT wheel | Rear-RIGHT wheel |
+
+### L298N pin map (BCM GPIO numbering)
+
+| Side | Signal | GPIO (BCM) | Pi physical pin |
+|------|--------|-----------|-----------------|
+| Left | ENA (speed PWM) — jumper removed | GPIO12 | Pin 32 |
+| Left | IN1 | GPIO16 | Pin 36 |
+| Left | IN2 | GPIO20 | Pin 38 |
+| Right | ENB (speed PWM) — jumper removed | GPIO18 | Pin 12 |
+| Right | IN3 | GPIO25 | Pin 22 |
+| Right | IN4 | GPIO26 | Pin 37 |
+| Both | L298N GND | — | common rail + Pi Pin 6 (GND) |
+
+The ENA/ENB jumpers must come off so the Pi PWM pins control speed. All 4 jumpers (both boards) are off in the final build.
+
+### Signal sharing via breadboard
+
+Each GPIO feeds the SAME channel letter on BOTH boards — the split is by channel letter, not by board. Each GPIO wire goes into one breadboard row; two wires come out of that row (one to each board):
+
+| Signal | GPIO | Must reach |
+|--------|------|-----------|
+| Left speed | GPIO12 (Pin 32) | ENA on front board + ENA on back board |
+| Left dir | GPIO16 (Pin 36) | IN1 on both boards |
+| Left dir | GPIO20 (Pin 38) | IN2 on both boards |
+| Right speed | GPIO18 (Pin 12) | ENB on both boards |
+| Right dir | GPIO25 (Pin 22) | IN3 on both boards |
+| Right dir | GPIO26 (Pin 37) | IN4 on both boards |
+
+All black/ground wires meet at the breadboard blue rail (buck IN-, buck OUT-, both L298N GND, Pi Pin 6). The 5V logic rail (buck OUT+) feeds both L298N +5V terminals via the red rail. The L298N 12V inputs tap from the buck IN+ screw terminal (same node as the barrel jack).
+
+`motor_driver` settings: max_speed 0.8, wheel_separation 0.18 m, min_pwm 0.25 (any command below the ~25% static-friction threshold is boosted to 0.25 so the TT motors actually turn). Buzzing without spinning means the PWM is too low — physics, not a bug.
+
+### Issues hit during bring-up (for the report)
+
+1. ENA/ENB wires landed on wrong header pins — rewired in line with the IN pins.
+2. Front wheels spun backwards — swapped motor lead polarity on the front board channels (fixed in wiring, never in code).
+3. Turn test inverted (whole front vs whole back) — signals were split per-board instead of per-channel-letter; fixed by adding the second output wire to each breadboard row.
+
+### Test motors (wheels off ground)
+
+```bash
+# Terminal 1 — start the driver
+ros2 run robot_control motor_driver
+
+# Terminal 2 — forward at 50%
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.5}, angular: {z: 0.0}}"
+
+# Stop (or just wait — the watchdog stops motors 1 s after the last /cmd_vel)
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}, angular: {z: 0.0}}"
+```
+
+### Keyboard driving (teleop)
+
+```bash
+sudo apt install ros-jazzy-teleop-twist-keyboard -y  # once only
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+---
+
+## 10. Battery & Power Wiring
+
+Battery: 11.1V 3S 45C 5500mAh LiPo (purchased). Full charge is 12.6V — both the L298N and the buck converter accept it, so treat it as the 12V rail.
+
+### Power chain
+
+```
+LiPo → barrel jack adapter
+barrel + → buck converter IN+ → L298N #1 +12V AND L298N #2 +12V
+barrel - → buck converter IN- → breadboard blue rail
+buck OUT+ (5V) → breadboard red rail → L298N #1 +5V (VCC) AND L298N #2 +5V
+buck OUT- → breadboard blue rail
+blue rail: buck IN-, buck OUT-, both L298N GND, Pi Pin 6
+Pi 5 → powered separately via USB-C (power bank)
+```
+
+### LiPo safety rules
+
+- **Never charge unattended** — balance charger + LiPo safe bag, on a non-flammable surface.
+- **Never discharge below 9.0V total** (3.0V per cell) — stop driving around 10.5V.
+- **Disconnect immediately** if the pack gets hot, puffy, or smells sweet.
+- **Never power the Pi from the buck converter AND USB-C at the same time.**
+- **First power-up of any new wiring:** benchtop supply, 3A current limit, wheels off the ground.
+
+---
+
+## 11. Farmer Dashboard (Farmer-Facing UI)
 
 Flask web dashboard: results table + GPS field health map. The robot writes results to a JSON file; the web page reads it and auto-refreshes.
 
@@ -299,7 +433,7 @@ source /opt/ros/jazzy/setup.bash
 python3 ~/ros2_ws/src/robot_control/dashboard/result_logger.py
 ```
 
-result_logger currently SIMULATES one waypoint scan every 10 s. In Week 6, `simulate_scan()` gets replaced with real GPS + classifier subscriptions.
+`result_logger` currently SIMULATES one waypoint scan every 10 s. In Week 6, `simulate_scan()` gets replaced with real GPS + classifier subscriptions.
 
 ### View on laptop
 
@@ -307,7 +441,7 @@ result_logger currently SIMULATES one waypoint scan every 10 s. In Week 6, `simu
 http://[PI_IP]:8080
 ```
 
-- Port 8080 = dashboard. Port 5000 = camera stream. Do not mix them up.
+- Port 8080 = farmer dashboard. Port 5000 = camera stream + drive controls. Do not mix them up.
 - New scans appear within ~15 s (10 s scan interval + 5 s page poll). This lag is normal.
 - The map loads tiles from OpenStreetMap — the viewing laptop needs internet.
 - No colcon build needed; run dashboard scripts directly with python3.
@@ -322,7 +456,56 @@ curl -s http://localhost:8080/api/stats
 
 The two totals should match. Hard refresh the browser with Ctrl+Shift+R.
 
-## 10. GPS (NEO-8M GNSS) Setup
+---
+
+## 12. Web Drive Control (rosbridge Dashboard) — NEW 6 Oct
+
+*Drive the robot from any browser (laptop or phone) on the same network. Buttons + WASD/arrow keys, speed slider, embedded camera feed, auto-stop on button release / tab blur. roslib.js talks WebSocket to rosbridge; no changes to motor_driver.py needed.*
+
+### How it works
+
+```
+Browser (control.html, roslib.js)
+    | WebSocket
+    v
+rosbridge_server on Pi (port 9090) ← started by bringup.launch.py
+    | publishes /cmd_vel at 10 Hz while a button is held
+    v
+motor_driver node (watchdog stops motors 1 s after last message)
+```
+
+### Files
+
+| File | Path on Pi |
+|------|-----------|
+| Control page | ~/ros2_ws/src/robot_control/dashboard/drive/control.html (served by Flask at /control) |
+| Flask route | @app.route('/control') in camera_stream.py |
+| rosbridge | ros-jazzy-rosbridge-suite (installed 6 Oct) |
+
+### Use it
+
+```bash
+# Everything via bringup (recommended):
+ros2 launch robot_control bringup.launch.py
+```
+
+Then open in a browser on the same network:
+
+```
+http://[PI_IP]:5000/control
+```
+
+The status badge must show **CONNECTED** (green). Hold a button to drive, release to stop. Verify the chain with:
+
+```bash
+ros2 topic echo /cmd_vel
+```
+
+&gt; **Note:** control.html uses `location.hostname` for the WebSocket and `iframe src="/"` for the camera — no hardcoded IP, so it survives hotspot IP changes. Try `http://yvette-pi5.local:5000/control` if the IP is unknown.
+
+---
+
+## 13. GPS (NEO-8M GNSS) Setup
 
 ### Enable UART on Pi 5
 
@@ -339,7 +522,8 @@ enable_uart=1
 minicom -b 9600 -o -D /dev/ttyAMA0
 ```
 
-You should see NMEA sentences ($GNGGA, $GNRMC). Ctrl+A then X to quit. *(Not yet wired as of 22 Sep.)*
+You should see NMEA sentences ($GNGGA, $GNRMC). Ctrl+A then X to quit.
+*(Not yet wired as of 6 Oct.)*
 
 ### Run GPS ROS2 node (after wiring)
 
@@ -347,7 +531,9 @@ You should see NMEA sentences ($GNGGA, $GNRMC). Ctrl+A then X to quit. *(Not yet
 ros2 run nmea_navsat_driver nmea_serial_driver --ros-args -p port:=/dev/serial0 -p baud:=9600
 ```
 
-## 11. Git Backup to GitHub
+---
+
+## 14. Git Backup to GitHub
 
 Repo is at `~/ros2_ws/src/robot_control` and is pushed regularly. Configure once:
 
@@ -373,7 +559,20 @@ cp ~/*.py ~/ros2_ws/src/robot_control/training/
 cp ~/plant_health.tflite ~/class_names.json ~/ros2_ws/src/robot_control/models/
 ```
 
-## 12. Quick Fixes
+### Push rejected? Pull first (two machines share this repo)
+
+```bash
+git pull origin main
+git push origin main
+```
+
+The GitHub web editor also pushes to this repo, so the remote is often ahead of the Pi. If a text editor opens for the merge message: Ctrl+X then Enter (nano) or Esc then `:wq` (vim). If it reports merge conflicts, stop and ask before resolving.
+
+**Golden rule:** pull before you start work, push when you finish.
+
+---
+
+## 15. Quick Fixes
 
 ### NumPy / OpenCV conflict (cv2 import crash with NumPy 2.x)
 
@@ -427,7 +626,69 @@ sudo apt install liblz4-dev libzstd-dev -y
 sudo apt install ros-jazzy-ros-base python3-pip i2c-tools -y
 ```
 
-## 13. Project File Locations on Pi
+### GPIO busy (lgpio.error) when starting motor_driver
+
+```bash
+pkill -f motor_driver
+```
+A stale motor_driver process is still holding the GPIO pins. Kill it, then rerun the node.
+
+### Motors buzz but do not spin
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.5}, angular: {z: 0.0}}"
+```
+Below ~0.25 PWM the TT motors stall on static friction — motor_driver already boosts small commands to min_pwm 0.25. If they still stall: check L298N 12V power, all 4 ENA/ENB jumpers removed, and the common ground wire to Pi Pin 6.
+
+### git push rejected (fetch first)
+
+```bash
+git pull origin main
+git push origin main
+```
+
+### teleop_twist_keyboard not found
+
+```bash
+sudo apt install ros-jazzy-teleop-twist-keyboard -y
+```
+
+### apt install of rosbridge (or any ROS pkg) fails with 404
+
+```bash
+sudo apt update
+sudo apt install ros-jazzy-rosbridge-suite -y
+```
+Stale cache: the repo published newer packages; update first, then install.
+
+### Dashboard shows ERROR / DISCONNECTED
+
+```bash
+# rosbridge is not running. Either use bringup.launch.py, or manually:
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+```
+
+### 'bringup.launch.py was not found in the share directory'
+
+```bash
+cd ~/ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+Cause: build failed or aborted before copying the launch file into install/. Check setup.py has: `('share/' + package_name + '/launch', glob('launch/*.launch.py'))`, and the `launch/` folder exists in the package source.
+
+### setup.py SyntaxError / NameError after editing
+
+Common traps when adding the launch line by hand:
+- Missing import: `from glob import glob`
+- Typo: `find_package` → `find_packages`
+- `os.path.join` used without: `import os`
+
+Safest fix: rewrite setup.py completely from the known-good template (keep your console_scripts entry points).
+
+---
+
+## 16. Project File Locations on Pi
 
 | File / Folder | Path on Raspberry Pi |
 |---------------|----------------------|
@@ -435,6 +696,9 @@ sudo apt install ros-jazzy-ros-base python3-pip i2c-tools -y
 | Capture node | ~/ros2_ws/src/robot_control/robot_control/capture.py |
 | AI inference node | ~/ros2_ws/src/robot_control/robot_control/ai_inference.py |
 | Motor driver node | ~/ros2_ws/src/robot_control/robot_control/motor_driver.py |
+| GPS node (ready, not yet deployed) | ~/ros2_ws/src/robot_control/robot_control/gps_node.py |
+| Bringup launch file | ~/ros2_ws/src/robot_control/launch/bringup.launch.py |
+| Web drive control page | ~/ros2_ws/src/robot_control/dashboard/drive/control.html (served at /control) |
 | TFLite model | ~/ros2_ws/src/robot_control/models/plant_health.tflite |
 | Class names | ~/ros2_ws/src/robot_control/models/class_names.json |
 | Training scripts | ~/ros2_ws/src/robot_control/training/ |
@@ -450,16 +714,21 @@ sudo apt install ros-jazzy-ros-base python3-pip i2c-tools -y
 | ROS2 workspace | ~/ros2_ws/ |
 | Git repository | ~/ros2_ws/src/robot_control/ |
 
-## 14. Status Snapshot (22 Sep 2026)
+---
+
+## 17. Status Snapshot (6 Oct 2026)
 
 | Area | Status |
 |------|--------|
 | Camera + streaming | Done — USB webcam, stream + capture nodes working |
-| AI model (train → TFLite → Pi inference) | Done — 85% val accuracy, 3.5 ms/frame on Pi CPU |
+| AI model (train → TFLite → Pi inference) | Done — 90.1% val accuracy, 3.5 ms/frame on Pi CPU |
 | Background class + confidence threshold | Done — retrained with Other class |
-| Domain gap fix (webcam leaf shots) | IN PROGRESS — capture + retrain tonight |
+| Domain gap fix (webcam leaf shots) | Done — sorted into class folders, included in 16-class retrain |
 | Farmer dashboard | Done — simulated scans; real GPS+AI hookup in Week 6 |
-| Motors (L298N bring-up) | Not started — next critical task |
-| GPS / IMU / encoders wiring | Not started |
+| Motors (4-wheel drivetrain) | **DONE 6 Oct** — all 4 wheels, forward + turn verified; one channel per wheel, breadboard signal sharing |
+| Web drive control (rosbridge dashboard) | **Done 6 Oct** — browser buttons/WASD + camera feed at :5000/control |
+| One-command bringup (launch file) | **Done 6 Oct** — bringup.launch.py starts motor + rosbridge + camera |
+| GPS / IMU / encoders wiring | Components bought (NEO-8M, MPU9250, encoders) — wiring not started |
 | nav2 + EKF navigation | Not started |
+| Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
 | Report + viva | 2 Dec 2026 |
