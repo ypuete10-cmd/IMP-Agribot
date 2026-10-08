@@ -4,6 +4,76 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 08/10/2026 — Sensor stack COMPLETE (IMU + GPS + encoder fixes)
+
+Wired and verified all three sensors: 4× encoders, BNO055 IMU, NEO-8M GPS.
+Sensor stack is now fully live and publishing to ROS2 topics.
+
+**BNO055 IMU** (`imu_node.py`) — I2C bus 1 at address `0x29` (address
+pin high). Chip ID `0xa0` confirmed this is a BNO055, not the MPU9250
+originally ordered. Kept deliberately: onboard fusion processor outputs
+ready quaternion (no Madgwick needed). NDOF mode `0x0C`, publishes
+`/imu/data` at 20 Hz:
+
+| Field | Register | Scale |
+|-------|----------|-------|
+| Orientation quaternion | 0x20 | 1/16384 |
+| Angular velocity (gyro) | 0x14 | 1/16 → rad/s |
+| Linear acceleration | 0x28 | 1/100 → m/s² |
+
+Covariances set for `robot_localization`. Verified: quaternion responds
+smoothly to yaw, gyro noise ~0.005 rad/s at rest, gravity on Z-axis.
+**Note:** board currently tilted ~18° (x=-3.1 m/s² at rest) — must
+remount flat before nav2.
+
+**NEO-8M GPS** (`gps_node.py`) — `/dev/ttyAMA0` @ 9600 baud, parses
+`$GPGGA`/`$GNGGA` sentences. Publishes `/fix` (NavSatFix) at 1 Hz
+**always**: status `-1` + `0.0/0.0` when no fix, real lat/lon +
+`STATUS_FIX` when locked. Verified indoors: stream healthy, status `-1`
+as expected (needs sky view for position fix). Requires `pyserial`.
+
+**Pi config for UART** (both required on Pi 5 + Ubuntu 24.04):
+```bash
+sudo nano /boot/firmware/config.txt
+# Add BOTH:
+enable_uart=1
+dtparam=uart0=on
+```
+`/dev/ttyAMA0` = GPIO header UART. `/dev/ttyAMA10` = Bluetooth — ignore.
+Also remove serial console from `cmdline.txt`, and add user to `dialout`
+group: `sudo usermod -aG dialout $USER`.
+
+**Encoder fixes** (`encoder_node.py`) — direction now fused from
+`/cmd_vel` using the same diff-drive mixing as `motor_driver` (per-side,
+not per-wheel). **Deadband patch:** `|cmd| &lt;= 0.01` keeps the last
+direction — stops coasting ticks being miscounted at stops/reversals.
+Verified: stable plateaus at rest (zero phantom drift), smooth
+bidirectional integration. Calibration: `ticks_per_meter ~90`.
+
+**Sensor stack status:**
+
+| Sensor | Topic | State |
+|--------|-------|-------|
+| 4× encoders | `/odom`, `/wheel_ticks` | calibrated, signed odometry |
+| BNO055 IMU | `/imu/data` | fused quaternion, 20 Hz |
+| NEO-8M GPS | `/fix` | publishing; fix needs sky view |
+
+**GPIO/I2C/UART budget (final):**
+- Motors: 12/16/20 (L), 18/25/26 (R)
+- Encoders: 5/6/13/19
+- I2C: GPIO2/3 → BNO055 @0x29 (AHT20 0x38 + BMP280 0x76 share later)
+- UART: GPIO14/15 → `/dev/ttyAMA0` → GPS
+- **Spare: 12 GPIO** (4/7/8/9/10/11/17/21/22/23/24/27)
+
+**Next:** `robot_localization` EKF (`/odom` + `/imu/data` →
+`/odometry/filtered`), then nav2 with GPS waypoints. Demo-day checklist:
+remount IMU flat, GPS antenna sky view, figure-8 mag calibration for
+BNO055.
+
+
+
+---
+
 ## 07/10/2026 — Encoder odometry complete (4-wheel, cmd_vel direction fusion)
 
 Wired 4× LM393 encoder modules (VCC 3.3V Pin 1, GND blue rail, D0 to
