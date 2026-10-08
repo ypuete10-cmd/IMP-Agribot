@@ -308,20 +308,22 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 ---
 
-## 9. Motors (L298N + TT Motors)
+## 9. Motors (L298N + TT Motors) & Encoders
 
-*Status (6 Oct): DONE — all 4 wheels drive and turn correctly. Verified: forward (linear.x = 0.5) all 4 wheels correct; turn-in-place (angular.z = 0.5) left/right counter-rotate correctly. Tested from keyboard teleop and the web dashboard.*
+*Status (8 Oct): DONE — 4-wheel drivetrain + encoder odometry + IMU + GPS
+all verified. Motors: forward + turn correct. Encoders: zero drift,
+smooth bidirectional. IMU: BNO055 onboard fusion. GPS: /fix publishing.*
 
-### Architecture (final, per-channel — no motors in parallel)
+### Motor architecture (final, per-channel — no motors in parallel)
 
-One channel per wheel (a stalled TT motor pair on one 2A channel could overheat it):
+One channel per wheel:
 
 | Board | Channel A (OUT1/OUT2) | Channel B (OUT3/OUT4) |
 |-------|----------------------|----------------------|
 | Front L298N | Front-LEFT wheel | Front-RIGHT wheel |
 | Back L298N | Rear-LEFT wheel | Rear-RIGHT wheel |
 
-### L298N pin map (BCM GPIO numbering)
+### L298N pin map (BCM GPIO)
 
 | Side | Signal | GPIO (BCM) | Pi physical pin |
 |------|--------|-----------|-----------------|
@@ -333,30 +335,30 @@ One channel per wheel (a stalled TT motor pair on one 2A channel could overheat 
 | Right | IN4 | GPIO26 | Pin 37 |
 | Both | L298N GND | — | common rail + Pi Pin 6 (GND) |
 
-The ENA/ENB jumpers must come off so the Pi PWM pins control speed. All 4 jumpers (both boards) are off in the final build.
+All 4 ENA/ENB jumpers removed. Signal sharing via breadboard.
 
-### Signal sharing via breadboard
+### Encoder wiring (LM393, 3.3V, pull-up)
 
-Each GPIO feeds the SAME channel letter on BOTH boards — the split is by channel letter, not by board. Each GPIO wire goes into one breadboard row; two wires come out of that row (one to each board):
+| Wheel | GPIO (BCM) | Pi physical pin | Wire |
+|-------|-----------|-----------------|------|
+| Front-Left | GPIO5 | Pin 29 | D0 (A0 unused) |
+| Rear-Left | GPIO6 | Pin 31 | D0 |
+| Front-Right | GPIO13 | Pin 33 | D0 |
+| Rear-Right | GPIO19 | Pin 35 | D0 |
 
-| Signal | GPIO | Must reach |
-|--------|------|-----------|
-| Left speed | GPIO12 (Pin 32) | ENA on front board + ENA on back board |
-| Left dir | GPIO16 (Pin 36) | IN1 on both boards |
-| Left dir | GPIO20 (Pin 38) | IN2 on both boards |
-| Right speed | GPIO18 (Pin 12) | ENB on both boards |
-| Right dir | GPIO25 (Pin 22) | IN3 on both boards |
-| Right dir | GPIO26 (Pin 37) | IN4 on both boards |
+All encoder VCC → 3.3V Pin 1. All GND → breadboard blue rail.
+`pull_up=True` in software.
 
-All black/ground wires meet at the breadboard blue rail (buck IN-, buck OUT-, both L298N GND, Pi Pin 6). The 5V logic rail (buck OUT+) feeds both L298N +5V terminals via the red rail. The L298N 12V inputs tap from the buck IN+ screw terminal (same node as the barrel jack).
+### Run encoder node
 
-`motor_driver` settings: max_speed 0.8, wheel_separation 0.18 m, min_pwm 0.25 (any command below the ~25% static-friction threshold is boosted to 0.25 so the TT motors actually turn). Buzzing without spinning means the PWM is too low — physics, not a bug.
+```bash
+ros2 run robot_control encoder_node
+ros2 topic echo /wheel_ticks
+ros2 topic echo /odom
+```
 
-### Issues hit during bring-up (for the report)
-
-1. ENA/ENB wires landed on wrong header pins — rewired in line with the IN pins.
-2. Front wheels spun backwards — swapped motor lead polarity on the front board channels (fixed in wiring, never in code).
-3. Turn test inverted (whole front vs whole back) — signals were split per-board instead of per-channel-letter; fixed by adding the second output wire to each breadboard row.
+Output: cumulative per-wheel counts (Int32MultiArray) and nav_msgs/Odometry
+with odom→base_link TF at 10 Hz.
 
 ### Test motors (wheels off ground)
 
@@ -367,18 +369,31 @@ ros2 run robot_control motor_driver
 # Terminal 2 — forward at 50%
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.5}, angular: {z: 0.0}}"
 
-# Stop (or just wait — the watchdog stops motors 1 s after the last /cmd_vel)
+# Stop
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}, angular: {z: 0.0}}"
 ```
 
 ### Keyboard driving (teleop)
 
 ```bash
-sudo apt install ros-jazzy-teleop-twist-keyboard -y  # once only
+sudo apt install ros-jazzy-teleop-twist-keyboard -y
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
----
+### Motor bring-up issues (for report)
+
+1. ENA/ENB wires landed on wrong header pins — rewired in line with IN pins
+2. Front wheels spun backwards — swapped motor lead polarity on front board
+3. Turn test inverted — signals split per-board instead of per-channel-letter;
+   fixed by adding second output wire per breadboard row
+
+### Encoder bring-up issues (for report)
+
+1. GPIO busy on restart → `pkill -f encoder_node` before relaunch
+2. Count-only encoders cannot sense direction → fused from `/cmd_vel`
+3. Zero-cmd direction flip → deadband patch (`|cmd| &gt; 0.01` updates dir)
+4. `calibrate.py` script retired — prompt timing confused leg boundaries;
+   live streaming `ros2 topic echo /odom` is the reliable method
 
 ## 10. Battery & Power Wiring
 
@@ -505,73 +520,146 @@ ros2 topic echo /cmd_vel
 
 ---
 
-## 13. GPS (NEO-8M GNSS) Setup
+## 13. IMU (BNO055 I2C)
 
-### Enable UART on Pi 5
+*Status (8 Oct): DONE. BNO055 at I2C address 0x29 (address pin high).
+Chip ID 0xa0 confirmed. NDOF mode 0x0C, onboard fusion processor outputs
+ready quaternion — simpler than MPU9250 + Madgwick. Publishes /imu/data
+at 20 Hz.*
+
+### Install dependency
+
+```bash
+pip3 install smbus2 --break-system-packages   # if not already installed
+```
+
+### Enable I2C (already done during initial setup)
+
+```bash
+sudo apt install i2c-tools -y
+sudo usermod -aG i2c $USER
+# Reboot after adding group
+```
+
+Verify the BNO055 is on the bus:
+
+```bash
+sudo i2cdetect -y 1
+# Expected: 0x29 (BNO055)
+```
+
+### Run the IMU node
+
+```bash
+ros2 run robot_control imu_node
+ros2 topic echo /imu/data
+```
+
+Output: `sensor_msgs/Imu` at 20 Hz with:
+- **Orientation** — fused quaternion (register 0x20, scale 1/16384)
+- **Angular velocity** — gyro in rad/s (register 0x14, scale 1/16 → dps → rad/s)
+- **Linear acceleration** — in m/s² (register 0x28, scale 1/100)
+
+Covariances are set for `robot_localization` EKF integration.
+
+### Verify IMU is working
+
+```bash
+# Check quaternion responds to yaw
+ros2 topic echo /imu/data | grep -A1 orientation
+
+# Check gyro noise at rest (~0.005 rad/s is normal)
+ros2 topic echo /imu/data | grep -A1 angular_velocity
+```
+
+### Important: mount flat before nav2
+
+The BNO055 board is currently tilted ~18° (x=-3.1 m/s² at rest instead
+of near-zero). Remount flat before running nav2/robot_localization, or
+the gravity vector will bias the EKF. Also perform a figure-8 magnetic
+calibration before the demo day for best heading accuracy.
+
+### BNO055 vs MPU9250
+
+The shop substituted BNO055 for the originally ordered MPU9250. Kept
+deliberately: the BNO055 has an onboard fusion processor that outputs
+a ready quaternion in NDOF mode. This eliminates the need for an
+external sensor fusion library (e.g. Madgwick/Mahony), simplifying the
+software stack. Trade-off: less raw-sensor transparency, but sufficient
+for this project's accuracy requirements.
+
+## 14. GPS (NEO-8M GNSS)
+
+*Status (8 Oct): DONE. NEO-8M on /dev/ttyAMA0 @9600 baud, publishes
+/fix (NavSatFix) at 1 Hz ALWAYS. Indoors: stream healthy, status=-1
+(no fix) as expected. Outdoors: position fix when sky view available.*
+
+### Pi 5 UART configuration (BOTH required)
 
 ```bash
 sudo nano /boot/firmware/config.txt
-# Add at the bottom:
+# Add BOTH lines:
 enable_uart=1
-# Then: sudo reboot
+dtparam=uart0=on
 ```
 
-### Test GPS raw data
+Then remove serial console from cmdline:
 
 ```bash
-minicom -b 9600 -o -D /dev/ttyAMA0
+sudo nano /boot/firmware/cmdline.txt
+# Remove any console=serial0 or console=ttyAMA0 entries
 ```
 
-You should see NMEA sentences ($GNGGA, $GNRMC). Ctrl+A then X to quit.
-*(Not yet wired as of 6 Oct.)*
-
-### Run GPS ROS2 node (after wiring)
+Add user to `dialout` group and reboot:
 
 ```bash
-ros2 run nmea_navsat_driver nmea_serial_driver --ros-args -p port:=/dev/serial0 -p baud:=9600
+sudo usermod -aG dialout $USER
+sudo reboot
 ```
 
----
-
-## 14. Git Backup to GitHub
-
-Repo is at `~/ros2_ws/src/robot_control` and is pushed regularly. Configure once:
+### Verify UART device
 
 ```bash
-git config --global user.name "Yvette Lee"
-git config --global user.email "your-email@example.com"
+ls -la /dev/ttyAMA0
+# Should exist and be readable by dialout group
 ```
 
-### Commit and push (run on Pi after changes)
+**Note:** `/dev/ttyAMA0` = GPIO header UART (GPIO14/15).
+`/dev/ttyAMA10` = Bluetooth — ignore.
+
+### Install dependency
 
 ```bash
-cd ~/ros2_ws/src/robot_control
-git add .
-git commit -m "description of changes"
-git push origin main
+pip3 install pyserial --break-system-packages
 ```
 
-Use a Personal Access Token (not your GitHub password) when prompted. Also commit training scripts and the model:
+### Run the GPS node
 
 ```bash
-mkdir -p ~/ros2_ws/src/robot_control/{training,models}
-cp ~/*.py ~/ros2_ws/src/robot_control/training/
-cp ~/plant_health.tflite ~/class_names.json ~/ros2_ws/src/robot_control/models/
+ros2 run robot_control gps_node
+ros2 topic echo /fix
 ```
 
-### Push rejected? Pull first (two machines share this repo)
+Output: `sensor_msgs/NavSatFix` at 1 Hz:
+- **status = -1** (NO_FIX) + lat/lon = 0.0/0.0 when indoors/no satellites
+- **status = 0** (FIX) + real lat/lon when sky view available
+
+The node publishes **always** so downstream nodes (EKF, dashboard)
+never wait on a silent topic.
+
+### Verify GPS stream
 
 ```bash
-git pull origin main
-git push origin main
+# Check raw NMEA sentences directly
+python3 -c "
+import serial
+s = serial.Serial('/dev/ttyAMA0', 9600, timeout=1)
+for _ in range(5):
+    print(s.readline().decode('ascii', errors='ignore').strip())
+"
 ```
 
-The GitHub web editor also pushes to this repo, so the remote is often ahead of the Pi. If a text editor opens for the merge message: Ctrl+X then Enter (nano) or Esc then `:wq` (vim). If it reports merge conflicts, stop and ask before resolving.
-
-**Golden rule:** pull before you start work, push when you finish.
-
----
-
+You should see `$GNGGA` or `$GPGGA` sentences.
 ## 15. Quick Fixes
 
 ### NumPy / OpenCV conflict (cv2 import crash with NumPy 2.x)
@@ -716,19 +804,23 @@ Safest fix: rewrite setup.py completely from the known-good template (keep your 
 
 ---
 
-## 17. Status Snapshot (6 Oct 2026)
+## 17. Status Snapshot (8 Oct 2026)
 
 | Area | Status |
 |------|--------|
 | Camera + streaming | Done — USB webcam, stream + capture nodes working |
 | AI model (train → TFLite → Pi inference) | Done — 90.1% val accuracy, 3.5 ms/frame on Pi CPU |
 | Background class + confidence threshold | Done — retrained with Other class |
-| Domain gap fix (webcam leaf shots) | Done — sorted into class folders, included in 16-class retrain |
+| Domain gap fix (webcam leaf shots) | Done — sorted into class folders |
 | Farmer dashboard | Done — simulated scans; real GPS+AI hookup in Week 6 |
-| Motors (4-wheel drivetrain) | **DONE 6 Oct** — all 4 wheels, forward + turn verified; one channel per wheel, breadboard signal sharing |
-| Web drive control (rosbridge dashboard) | **Done 6 Oct** — browser buttons/WASD + camera feed at :5000/control |
-| One-command bringup (launch file) | **Done 6 Oct** — bringup.launch.py starts motor + rosbridge + camera |
-| GPS / IMU / encoders wiring | Components bought (NEO-8M, MPU9250, encoders) — wiring not started |
-| nav2 + EKF navigation | Not started |
+| Motors (4-wheel drivetrain) | **DONE** — all 4 wheels, forward + turn verified |
+| Web drive control (rosbridge dashboard) | **Done** — browser buttons/WASD + camera feed at :5000/control |
+| One-command bringup (launch file) | **Done** — bringup.launch.py starts motor + rosbridge + camera |
+| Encoder odometry (4-wheel, signed, TF) | **DONE 7 Oct** — zero drift, ~90 ticks/m |
+| IMU (BNO055 I2C fusion) | **DONE 8 Oct** — /imu/data at 20 Hz, onboard quaternion |
+| GPS (NEO-8M UART /fix) | **DONE 8 Oct** — publishing always; fix needs sky view |
+| robot_localization EKF | Not started |
+| nav2 waypoint navigation | Not started |
+| Dashboard real data hookup | Not started |
 | Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
 | Report + viva | 2 Dec 2026 |
