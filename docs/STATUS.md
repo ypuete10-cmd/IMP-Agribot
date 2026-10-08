@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 7 October 2026 · Viva: 2 December 2026
+Last updated: 8 October 2026 · Viva: 2 December 2026
 
 ---
 
@@ -15,6 +15,8 @@ robot_control/
 │   ├── capture.py           # single photo capture
 │   ├── ai_inference.py      # TFLite inference, publishes /plant_health
 │   ├── encoder_node.py      # 4-wheel encoder counting + odometry + TF
+│   ├── imu_node.py          # BNO055 I2C IMU, publishes /imu/data
+│   ├── gps_node.py          # NEO-8M UART GPS, publishes /fix
 │   └── camera_publisher.py  # /camera/image_raw (integration pending)
 ├── dashboard/               # Flask farmer dashboard (port 8080)
 ├── models/                  # plant_health.tflite, class_names.json
@@ -38,38 +40,43 @@ robot_control/
 7. **Web drive control** — browser-based teleop at `/control` with WASD,
    speed slider, auto-stop, no hardcoded IP
 8. **Encoder odometry** — 4× LM393 encoders wired (GPIO 5/6/13/19), publishes
-   /wheel_ticks + /odom + odom→base_link TF; calibrated 90 ticks/m,
+   /wheel_ticks + /odom + odom→base_link TF; calibrated ~90 ticks/m,
    ±10% per-leg accuracy, zero drift at rest
+9. **BNO055 IMU** — I2C @0x29, NDOF mode, publishes /imu/data at 20 Hz
+   (quaternion + gyro + accel). Onboard fusion; no Madgwick needed.
+10. **NEO-8M GPS** — UART /dev/ttyAMA0 @9600, publishes /fix at 1 Hz
+    always (status -1 when no fix). Stream verified; position fix needs sky view.
 
 ## Hardware Status
 
 | Item | Status |
 |------|--------|
 | Pi 5 (Ubuntu 24.04, ROS2 Jazzy) | ✅ Running |
-| USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired — Ubuntu 24.04 incompatible) |
-| Dual L298N motor drivers | ✅ Wired, 4-wheel drive working (breadboard signal sharing) |
+| USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired) |
+| Dual L298N motor drivers | ✅ Wired, 4-wheel drive working |
 | Breadboard (signal + power rails) | ✅ 6 GPIO → both boards; 5V/GND/12V distributed |
-| 4× LM393 wheel encoders | ✅ Wired (GPIO 5/6/13/19), 3.3V, pull-up; odometry publishing |
+| 4× LM393 wheel encoders | ✅ Wired (GPIO 5/6/13/19), 3.3V, odometry publishing |
+| BNO055 IMU (I2C 0x29) | ✅ Live, /imu/data at 20 Hz, onboard fusion |
+| NEO-8M GPS (UART /dev/ttyAMA0) | ✅ Publishing /fix; position fix needs sky |
 | ros-jazzy-rosbridge-suite | ✅ Installed |
 | 3S LiPo 5500mAh | Purchased; running on 12V wall adapter until charger/safe bag arrive |
-| NEO-8M GPS | Purchased, not wired (UART) |
-| MPU9250 IMU | Purchased, not wired (I2C) |
-| AHT20 + BMP280 | Purchased, not wired (I2C) |
+| AHT20 + BMP280 (I2C) | Purchased, not wired (share bus with BNO055) |
 | 2× HC-SR04 ultrasonic | From lab, not wired |
+| MPU9250 (original order) | Shop substituted with BNO055 — kept deliberately |
 
 ## Critical Path (remaining ~7.5 weeks)
 
 1. ~~Wire L298N #2 → full 4-wheel drive teleop~~ ✅ DONE 03/10
 2. ~~One-command bringup + web drive dashboard~~ ✅ DONE 06/10
 3. ~~Encoder odometry (4-wheel, signed counts, TF)~~ ✅ DONE 07/10
-4. Wire GPS (NEO-8M) to UART, enable_uart=1, test /fix topic
-5. Wire IMU + env sensors (I2C) → verify i2cdetect 0x68/0x38/0x76
-6. robot_localization EKF (fuse encoders + IMU + GPS)
-7. nav2 waypoint navigation
+4. ~~IMU node (BNO055 I2C fusion)~~ ✅ DONE 08/10
+5. ~~GPS node (NEO-8M UART /fix publisher)~~ ✅ DONE 08/10
+6. robot_localization EKF (fuse /odom + /imu/data → /odometry/filtered)
+7. nav2 waypoint navigation (GPS waypoints)
 8. Dashboard: replace simulated scans with real GPS + /plant_health
 9. Report writing + demo prep
 
-## GPIO Pinout
+## GPIO / I2C / UART Map
 
 | GPIO | Pin | Function | Status |
 |------|-----|----------|--------|
@@ -83,36 +90,38 @@ robot_control/
 | 6 | 31 | Encoder RL (D0, 3.3V) | ✅ Wired |
 | 13 | 33 | Encoder FR (D0, 3.3V) | ✅ Wired |
 | 19 | 35 | Encoder RR (D0, 3.3V) | ✅ Wired |
-| 2/3 | 3/5 | I2C (IMU, AHT20, BMP280) | ⬜ Not wired |
-| 14/15 | 8/10 | UART (GPS) | ⬜ Not wired |
+| 2/3 | 3/5 | I2C (BNO055 @0x29; AHT20 0x38 + BMP280 0x76 later) | ✅ BNO055 live |
+| 14/15 | 8/10 | UART /dev/ttyAMA0 (GPS) | ✅ GPS live |
 
-**GPIO budget:** 14 used, 12 spare (4/7/8/9/10/11/17/21/22/23/24/27)
+**GPIO budget:** 16 used, 10 spare (4/7/8/9/10/11/17/21/22/23/24/27 minus 2 for I2C = 10)
 
 ## Known Issues / Fixes Applied
 
 - Pi Camera v2 incompatible with Ubuntu 24.04 → USB webcam (V4L2)
 - GPIO busy error → kill old process before restart (motor, encoder)
-- Motors need ≥25% PWM to overcome static friction → threshold coded in node
-- ENA/ENB miswired during bring-up → rewired to align with IN pins
+- Motors need ≥25% PWM → threshold coded in node
+- ENA/ENB miswired → rewired to align with IN pins
 - Front wheels spun backwards → swapped motor lead polarity
 - Front/back turning inversion → breadboard second output wire per GPIO row
 - Count-only encoders cannot sense direction → fused from /cmd_vel
-- Zero-cmd direction flip caused coasting miscounts → deadband patch (|cmd| &gt; 0.01)
+- Zero-cmd direction flip → deadband patch (|cmd| &gt; 0.01)
 - tflite-runtime has no Python 3.12 wheels → ai-edge-litert; NumPy pinned to 1.26.4
-- Camera device number changes after reboot → re-verify /dev/videoN before use
+- Camera device number changes after reboot → re-verify /dev/videoN
 - WSL cannot SSH to Pi on hotspot → use Windows PowerShell
+- BNO055 tilted ~18° → remount flat before nav2; mag calibrate before demo
+- GPS no fix indoors → normal; test outdoors with sky view
 
 ## Notes for Report
 
 - Chassis is open-source adapted (Thingiverse), not designed from scratch —
   **must cite original source** in references
 - Custom work: Pi mounting tray, camera mast, two-deck layout, wiring integration,
-  breadboard signal-sharing architecture (dual L298N per-channel), encoder
-  odometry with cmd_vel direction fusion, deadband patch for coasting drift
+  breadboard signal-sharing architecture, encoder odometry with cmd_vel direction
+  fusion + deadband patch, BNO055 NDOF integration (onboard fusion vs Madgwick)
 - "Future improvements" section: deferred sensors (rain, soil, air quality),
   solar panel, IP54 enclosure
 - PlantVillage dataset © original authors (CC BY-SA) — attribute in report
-- Known demo caveat: phone-screen leaf images may misclassify (LCD moiré) —
-  use printed photos or real leaves for the viva demo
-- Encoder limitation: ±10% per-leg distance accuracy; GPS fusion in nav2
-  will correct drift globally
+- Known demo caveat: phone-screen leaf images may misclassify (LCD moiré)
+- Encoder limitation: ±10% per-leg accuracy; EKF + GPS fusion will correct drift
+- BNO055 substitution: shop sent BNO055 instead of MPU9250; kept because onboard
+  fusion processor simplifies stack (no external sensor fusion library needed)
