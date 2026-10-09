@@ -34,6 +34,7 @@ setup(
             'encoder_node = robot_control.encoder_node:main',
             'imu_node = robot_control.imu_node:main',
             'gps_node = robot_control.gps_node:main',
+            'env_node = robot_control.env_node:main',
         ],
     },
 )
