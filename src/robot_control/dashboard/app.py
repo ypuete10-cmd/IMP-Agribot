@@ -9,12 +9,14 @@ Later, real data arrives either via:
 """
 import json, os, threading
 from datetime import datetime
-from flask import Flask, jsonify, render_template, request, abort
+from flask import Flask, jsonify, render_template, request, abort, Response, stream_with_context
+import requests
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, 'data', 'results.json')
 
 app = Flask(__name__)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 _lock = threading.Lock()
 
 def load_results():
@@ -64,6 +66,22 @@ def api_submit():
     data['updated'] = datetime.now().isoformat(timespec='seconds')
     save_results(data)
     return jsonify({'ok': True, 'id': r['id']})
+CAM = 'http://127.0.0.1:5000'
+
+@app.route('/cam')
+def cam():
+    return ('<html><body style="margin:0;background:#000">'
+            '<img src="/cam_feed" style="width:100%;height:100%;object-fit:cover">'
+            '</body></html>')
+
+@app.route('/cam_feed')
+def cam_feed():
+    def gen():
+        with requests.get(CAM + '/video_feed', stream=True, timeout=10) as r:
+            for chunk in r.iter_content(chunk_size=4096):
+                yield chunk
+    return Response(stream_with_context(gen()),
+                    content_type='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
     # Port 8080 — 5000 is already used by your camera stream

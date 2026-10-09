@@ -2,21 +2,39 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>AgriBot — Field Health Dashboard</title>
+<title>AgriBot — Mission Control</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6f4; color: #223; }
   header { background: #1b5e20; color: #fff; padding: 14px 20px;
            display: flex; justify-content: space-between; align-items: center; }
   header h1 { margin: 0; font-size: 1.3rem; }
-  .stats { display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap; }
+  .stats { display: flex; gap: 12px; padding: 16px 20px 8px; flex-wrap: wrap; }
   .card { background: #fff; border-radius: 8px; padding: 12px 18px;
-          box-shadow: 0 1px 3px rgba(0,0,0,.08); min-width: 120px; }
-  .card .num { font-size: 1.6rem; font-weight: 700; }
-  .card .lbl { color: #667; font-size: .8rem; text-transform: uppercase; }
+          box-shadow: 0 1px 3px rgba(0,0,0,.08); min-width: 110px; }
+  .card .num { font-size: 1.35rem; font-weight: 700; }
+  .card .lbl { color: #667; font-size: .75rem; text-transform: uppercase; }
+  .sensors { display: flex; gap: 10px; padding: 8px 20px; flex-wrap: wrap;
+             background: #e8f0e8; border-bottom: 1px solid #d5e0d5; }
+  .sensors .card { min-width: 130px; padding: 8px 14px; }
+  .sensors .num { font-size: 1.05rem; font-family: ui-monospace, monospace; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+         margin-right: 5px; background: #c00; }
+  .dot.ok { background: #2e7d32; }
+  .drive-row { display: grid; grid-template-columns: 1fr 320px; gap: 16px;
+               padding: 12px 20px; }
+  @media (max-width: 900px) { .drive-row { grid-template-columns: 1fr; } main { grid-template-columns: 1fr; } }
+  #cam { width: 100%; height: 300px; border: 0; border-radius: 8px;
+         box-shadow: 0 1px 3px rgba(0,0,0,.08); background: #000; }
+  .pad { display: grid; grid-template-columns: repeat(3, 80px); gap: 6px;
+         justify-content: center; padding: 10px; }
+  .pad button { height: 56px; font-size: 22px; border: 0; border-radius: 8px;
+                background: #1b5e20; color: #fff; touch-action: none; cursor: pointer; }
+  .pad button:active { background: #f9a825; }
+  #stop { background: #b71c1c; grid-column: 2; }
   main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 20px 20px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  #map { height: 480px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  #map { height: 460px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   table { width: 100%; border-collapse: collapse; background: #fff;
           border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08);
           font-size: .9rem; }
@@ -26,13 +44,13 @@
   .badge { padding: 2px 8px; border-radius: 10px; font-size: .75rem; font-weight: 600; }
   .b-healthy  { background: #e8f5e9; color: #2e7d32; }
   .b-diseased { background: #ffcdd2; color: #b71c1c; }
-  #updated { font-size: .75rem; opacity: .8; }
 </style>
 </head>
 <body>
 <header>
-  <h1>AgriBot Field Health</h1>
-  <div>Mission: <b id="mission">–</b> · <span id="updated">–</span></div>
+  <h1>AgriBot Mission Control</h1>
+  <div><span class="dot" id="ros-dot"></span><span id="ros-status">connecting…</span>
+       · Mission: <b id="mission">–</b> · <span id="updated">–</span></div>
 </header>
 
 <div class="stats">
@@ -40,6 +58,29 @@
   <div class="card"><div class="num" style="color:#2e7d32" id="st-healthy">0</div><div class="lbl">Healthy</div></div>
   <div class="card"><div class="num" style="color:#b71c1c" id="st-diseased">0</div><div class="lbl">Diseased</div></div>
   <div class="card"><div class="num" id="st-pct">0%</div><div class="lbl">Disease rate</div></div>
+</div>
+
+<div class="sensors">
+  <div class="card"><div class="num" id="s-gps">no fix</div><div class="lbl">GPS <span id="s-gpsfix"></span></div></div>
+  <div class="card"><div class="num" id="s-dist">0.0 m</div><div class="lbl">Distance</div></div>
+  <div class="card"><div class="num" id="s-head">0°</div><div class="lbl">Heading</div></div>
+  <div class="card"><div class="num" id="s-temp">–</div><div class="lbl">Temp</div></div>
+  <div class="card"><div class="num" id="s-hum">–</div><div class="lbl">Humidity</div></div>
+  <div class="card"><div class="num" id="s-ai">–</div><div class="lbl">AI last scan</div></div>
+</div>
+
+<div class="drive-row">
+  <iframe id="cam" src="/cam_feed"></iframe>
+  <div class="card">
+    <div class="lbl" style="margin-bottom:6px">Manual drive (hold)</div>
+    <div class="pad">
+      <span></span><button id="fwd">▲</button><span></span>
+      <button id="left">◀</button><button id="stop">■</button><button id="right">▶</button>
+      <span></span><button id="rev">▼</button><span></span>
+    </div>
+    <div style="text-align:center">Speed
+      <input type="range" id="speed" min="0.2" max="0.8" step="0.1" value="0.4"></div>
+  </div>
 </div>
 
 <main>
@@ -54,7 +95,71 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Map centered on your demo field — change lat/lon to your greenhouse
+// ---------- ROS live sensors + drive ----------
+const ros = new ROSLIB.Ros({ url: 'ws://' + location.hostname + ':9090' });
+const dot = document.getElementById('ros-dot'), rstat = document.getElementById('ros-status');
+ros.on('connection', () => { dot.className = 'dot ok'; rstat.textContent = 'robot connected'; });
+ros.on('error',      () => { dot.className = 'dot';    rstat.textContent = 'ROS error (bringup running?)'; });
+ros.on('close',      () => { dot.className = 'dot';    rstat.textContent = 'disconnected'; });
+
+// Drive pad (same as /control)
+const cmdVel = new ROSLIB.Topic({ ros, name: '/cmd_vel', messageType: 'geometry_msgs/Twist' });
+let vx = 0, vz = 0;
+setInterval(() => {
+  cmdVel.publish(new ROSLIB.Message({
+    linear: { x: vx, y: 0, z: 0 }, angular: { x: 0, y: 0, z: vz } }));
+}, 100);
+const spd = () => parseFloat(document.getElementById('speed').value);
+const drive = (x, z) => { vx = x * spd(); vz = z * spd(); };
+const stopD = () => { vx = 0; vz = 0; };
+function bind(id, x, z) {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); drive(x, z); });
+  b.addEventListener('pointerup', stopD);
+  b.addEventListener('pointerleave', stopD);
+}
+bind('fwd', 1, 0); bind('rev', -1, 0); bind('left', 0, 1); bind('right', 0, -1);
+document.getElementById('stop').addEventListener('pointerdown', stopD);
+window.addEventListener('blur', stopD);
+
+// Sensor subscriptions
+new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix' }).subscribe(m => {
+  const el = document.getElementById('s-gps'), fx = document.getElementById('s-gpsfix');
+  if (m.status.status >= 0) {
+    el.textContent = m.latitude.toFixed(5) + ', ' + m.longitude.toFixed(5);
+    fx.textContent = '● fix';
+    fx.style.color = '#2e7d32';
+  } else {
+    el.textContent = 'no fix';
+    fx.textContent = '○ waiting';
+    fx.style.color = '#b71c1c';
+  }
+});
+new ROSLIB.Topic({ ros, name: '/odom', messageType: 'nav_msgs/Odometry' }).subscribe(m => {
+  const d = Math.hypot(m.pose.pose.position.x, m.pose.pose.position.y);
+  document.getElementById('s-dist').textContent = d.toFixed(1) + ' m';
+});
+new ROSLIB.Topic({ ros, name: '/imu/data', messageType: 'sensor_msgs/Imu' }).subscribe(m => {
+  const q = m.orientation;
+  const yaw = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
+  let deg = yaw * 180 / Math.PI; if (deg < 0) deg += 360;
+  document.getElementById('s-head').textContent = deg.toFixed(0) + '°';
+});
+new ROSLIB.Topic({ ros, name: '/env/temperature', messageType: 'sensor_msgs/Temperature' }).subscribe(m => {
+  document.getElementById('s-temp').textContent = m.temperature.toFixed(1) + '°C';
+});
+new ROSLIB.Topic({ ros, name: '/env/humidity', messageType: 'sensor_msgs/RelativeHumidity' }).subscribe(m => {
+  document.getElementById('s-hum').textContent = (m.relative_humidity * 100).toFixed(0) + '%';
+});
+new ROSLIB.Topic({ ros, name: '/plant_health', messageType: 'std_msgs/String' }).subscribe(m => {
+  try {
+    const j = JSON.parse(m.data);
+    document.getElementById('s-ai').textContent =
+      j.class + ' ' + (j.confidence * 100).toFixed(0) + '%';
+  } catch (e) {}
+});
+
+// ---------- Map + results (unchanged) ----------
 const map = L.map('map').setView([1.35042, 103.68241], 18);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
@@ -69,14 +174,12 @@ async function refresh() {
   try {
     const [r, s] = await Promise.all([fetch('/api/results'), fetch('/api/stats')]);
     const data = await r.json(), stats = await s.json();
-
     document.getElementById('mission').textContent = stats.mission;
     document.getElementById('updated').textContent = 'updated ' + stats.updated;
     document.getElementById('st-total').textContent = stats.total;
     document.getElementById('st-healthy').textContent = stats.healthy;
     document.getElementById('st-diseased').textContent = stats.diseased;
     document.getElementById('st-pct').textContent = stats.pct_diseased + '%';
-
     document.getElementById('tbody').innerHTML = data.results.slice().reverse().map(x => {
       const dis = x.classification !== 'healthy';
       return `<tr class="${dis ? 'diseased' : ''}"><td>${x.id}</td>` +
@@ -85,16 +188,13 @@ async function refresh() {
         `<td>${(x.confidence * 100).toFixed(0)}%</td>` +
         `<td>${x.lat.toFixed(5)}</td><td>${x.lon.toFixed(5)}</td></tr>`;
     }).join('');
-
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     data.results.forEach(x => {
       const dis = x.classification !== 'healthy';
       const m = L.circleMarker([x.lat, x.lon], {
-        radius: 8,
-        color: dis ? '#b71c1c' : '#2e7d32',
-        fillColor: dis ? '#ef5350' : '#66bb6a',
-        fillOpacity: 0.85
+        radius: 8, color: dis ? '#b71c1c' : '#2e7d32',
+        fillColor: dis ? '#ef5350' : '#66bb6a', fillOpacity: 0.85
       }).addTo(map).bindPopup(
         `<b>${esc(x.waypoint)}</b><br>${esc(x.classification)} ` +
         `(${(x.confidence * 100).toFixed(0)}%)`);
@@ -103,7 +203,7 @@ async function refresh() {
   } catch (e) { console.error('refresh failed', e); }
 }
 refresh();
-setInterval(refresh, 5000);   // live auto-refresh — nice for demo day
+setInterval(refresh, 5000);
 </script>
 </body>
 </html>
