@@ -4,6 +4,73 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 09/10/2026 — Mission Control dashboard LIVE
+
+Rewrote `dashboard/templates/index.html` as a single **Mission Control**
+page. Layout top-to-bottom: stats cards → live sensor strip → camera
+feed + drive pad → GPS map + results table. All sensor data flows via
+`roslib.js` over the rosbridge WebSocket (port 9090) — **zero changes
+to any ROS node**.
+
+**Live sensor cards** (all updating in real time):
+- `/fix` → GPS coords + fix status
+- `/odom` → distance-traveled (hypot of x, y)
+- `/imu/data` → heading (quaternion → yaw → degrees)
+- `/env/temperature`, `/env/humidity` → AHT30 environmental cards
+- `/plant_health` → "AI last scan" card
+
+**Embedded drive pad** — same `/cmd_vel` 10 Hz publisher as the
+standalone `/control` page: hold-to-drive, auto-stop on release/blur,
+speed slider. Now part of the unified dashboard instead of a separate
+page.
+
+**Camera proxy** (no hardcoded IPs):
+- `GET /cam` → minimal wrapper HTML with `&lt;img src="/cam_feed"&gt;`
+- `GET /cam_feed` → streams MJPEG from `http://127.0.0.1:5000/video_feed`
+  via `requests` + `Flask Response(stream_with_context(gen()))`
+
+**Bringup now launches 6 ROS nodes + 2 services**, one command:**
+
+```bash
+ros2 launch robot_control bringup.launch.py
+# Starts: motor_driver, encoder_node, imu_node, env_node, gps_node,
+#         rosbridge_websocket, camera_stream (Flask :5000)
+```
+
+Then in a second terminal:
+
+```bash
+python3 ~/ros2_ws/src/robot_control/dashboard/app.py  # port 8080
+```
+
+**Bugs fixed during bring-up (report material):**
+1. `NameError: name 'requests' is not defined` → import line added in
+   nano but buffer not saved. Lesson: verify with `grep` after editing.
+2. `TypeError: 'function' object is not iterable` →
+   `stream_with_context(gen)` missing call parens; fixed to `gen()`.
+3. Camera iframe 404 despite proxy healthy → stray double-quote in
+   `iframe src` (`"/cam_feed""`). Diagnosed by reading the access log
+   verbatim: `GET /cam_feed" HTTP/1.1" 404`.
+4. Browser cache serving stale pages → incognito + Ctrl+Shift+R.
+5. Dashboard hung process blocking port 8080 → `pkill -f app.py`,
+   verify with `curl -I http://localhost:8080` before trusting the
+   browser.
+
+**Verified end-to-end:**
+- `curl /cam` = 200 (wrapper), `curl /cam_feed` = 200 (MJPEG relay),
+  `curl /video_feed` = 200 (direct)
+- Browser: live video in iframe, sensor cards updating, drive pad
+  publishing, map and results table intact
+- Zero hardcoded IPs anywhere in the dashboard (all relative paths)
+
+![Mission Control dashboard — sensor strip and camera feed](https://github.com/user-attachments/assets/669aabed-7c8f-424b-a11e-766d7152212e)
+
+![Mission Control dashboard — GPS map and results table](https://github.com/user-attachments/assets/477dfb78-d2f1-4e7d-9065-a5d188273116)
+
+![Mission Control dashboard — drive pad and heading card](https://github.com/user-attachments/assets/c02d9829-ccdf-4422-bf67-17b2473932fc)
+
+---
+
 ## 08/10/2026 — Sensor stack COMPLETE (IMU + GPS + encoder fixes)
 
 Wired and verified all three sensors: 4× encoders, BNO055 IMU, NEO-8M GPS.
@@ -61,7 +128,7 @@ bidirectional integration. Calibration: `ticks_per_meter ~90`.
 **GPIO/I2C/UART budget (final):**
 - Motors: 12/16/20 (L), 18/25/26 (R)
 - Encoders: 5/6/13/19
-- I2C: GPIO2/3 → BNO055 @0x29 (AHT20 0x38 + BMP280 0x76 share later)
+- I2C: GPIO2/3 → BNO055 @0x29 (AHT30 shares bus)
 - UART: GPIO14/15 → `/dev/ttyAMA0` → GPS
 - **Spare: 12 GPIO** (4/7/8/9/10/11/17/21/22/23/24/27)
 
@@ -70,7 +137,9 @@ bidirectional integration. Calibration: `ticks_per_meter ~90`.
 remount IMU flat, GPS antenna sky view, figure-8 mag calibration for
 BNO055.
 
+![BNO055 IMU on I2C bus](https://github.com/user-attachments/assets/9ed1aa74-bf93-4861-86d6-f2206999f6a3)
 
+![GPS NEO-8M UART test showing /fix topic](https://github.com/user-attachments/assets/b9b619d2-e46c-4c87-a08b-c9ef1d5efa7a)
 
 ---
 
