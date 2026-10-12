@@ -99,8 +99,14 @@ cmd_callback, 10)
         qz = math.sin(self.th / 2.0); qw = math.cos(self.th / 2.0)
         odom.pose.pose.orientation.z = qz
         odom.pose.pose.orientation.w = qw
+        odom.pose.covariance[0]  = 0.1   # x variance
+        odom.pose.covariance[7]  = 0.1   # y variance
+        odom.pose.covariance[35] = 0.05  # yaw variance
         odom.twist.twist.linear.x = dist / dt
         odom.twist.twist.angular.z = dth / dt
+        odom.twist.covariance[0]  = 0.05  # x_vel variance
+        odom.twist.covariance[7]  = 0.05  # y_vel variance
+        odom.twist.covariance[35] = 0.02  # yaw_vel variance
         self.odom_pub.publish(odom)
 
         t = TransformStamped()
@@ -126,3 +132,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
