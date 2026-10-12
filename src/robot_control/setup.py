@@ -36,6 +36,7 @@ setup(
             'imu_node = robot_control.imu_node:main',
             'gps_node = robot_control.gps_node:main',
             'env_node = robot_control.env_node:main',
+            'waypoint_follower = robot_control.waypoint_follower:main',
         ],
     },
 )

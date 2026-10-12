@@ -9,9 +9,7 @@
 .cam-wrapper {
     position: relative;
     width: 100%;
-    maz-width: 480px
-    marign: 0 auto;
-    padding-bottom: 75%; /* 75% for 4:3 */
+    padding-bottom: 75%; /* 4:3 */
     height: 0;
     overflow: hidden;
     background: #000;
@@ -45,14 +43,19 @@
   .drive-row { display: grid; grid-template-columns: 1fr 320px; gap: 16px;
                padding: 12px 20px; }
   @media (max-width: 900px) { .drive-row { grid-template-columns: 1fr; } main { grid-template-columns: 1fr; } }
-  #cam { width: 100%; height: 100%; border: 0; border-radius: 8px;
-         box-shadow: 0 1px 3px rgba(0,0,0,.08); background: #000;object-fit: cover;display:block; }
   .pad { display: grid; grid-template-columns: repeat(3, 80px); gap: 6px;
          justify-content: center; padding: 10px; }
   .pad button { height: 56px; font-size: 22px; border: 0; border-radius: 8px;
                 background: #1b5e20; color: #fff; touch-action: none; cursor: pointer; }
   .pad button:active { background: #f9a825; }
   #stop { background: #b71c1c; grid-column: 2; }
+  .wp-controls { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .wp-controls button { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-size: 13px; }
+  #wp-save { background: #2e7d32; }
+  #wp-clear { background: #c62828; }
+  #wp-run { background: #1565c0; }
+  #wp-stop { background: #ef6c00; }
+  #wp-count { align-self: center; font-size: 13px; color: #555; }
   main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 20px 20px; }
   #map { height: 460px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   table { width: 100%; border-collapse: collapse; background: #fff;
@@ -102,6 +105,13 @@
     </div>
     <div style="text-align:center">Speed
       <input type="range" id="speed" min="0.2" max="0.8" step="0.1" value="0.4"></div>
+    <div class="wp-controls">
+      <button id="wp-save">Save Waypoint</button>
+      <button id="wp-clear">Clear All</button>
+      <button id="wp-run">Run</button>
+      <button id="wp-stop">Stop</button>
+      <span id="wp-count">0 waypoints</span>
+    </div>
   </div>
 </div>
 
@@ -126,10 +136,12 @@ ros.on('close',      () => { dot.className = 'dot';    rstat.textContent = 'disc
 
 // Drive pad (same as /control)
 const cmdVel = new ROSLIB.Topic({ ros, name: '/cmd_vel', messageType: 'geometry_msgs/Twist' });
-let vx = 0, vz = 0;
+let vx = 0, vz = 0, autonomous = false;
 setInterval(() => {
-  cmdVel.publish(new ROSLIB.Message({
-    linear: { x: vx, y: 0, z: 0 }, angular: { x: 0, y: 0, z: vz } }));
+  if (!autonomous) {
+    cmdVel.publish(new ROSLIB.Message({
+      linear: { x: vx, y: 0, z: 0 }, angular: { x: 0, y: 0, z: vz } }));
+  }
 }, 100);
 const spd = () => parseFloat(document.getElementById('speed').value);
 const drive = (x, z) => { vx = x * spd(); vz = z * spd(); };
@@ -143,6 +155,40 @@ function bind(id, x, z) {
 bind('fwd', 1, 0); bind('rev', -1, 0); bind('left', 0, 1); bind('right', 0, -1);
 document.getElementById('stop').addEventListener('pointerdown', stopD);
 window.addEventListener('blur', stopD);
+
+// ===== KEYBOARD CONTROL =====
+const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+document.addEventListener('keydown', (e) => {
+  if (keys.hasOwnProperty(e.key)) { keys[e.key] = true; e.preventDefault(); updateKeyboardCmd(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (keys.hasOwnProperty(e.key)) { keys[e.key] = false; e.preventDefault(); updateKeyboardCmd(); }
+});
+function updateKeyboardCmd() {
+  let x = 0, z = 0;
+  const speed = spd();
+  if (keys.w || keys.ArrowUp) x += speed;
+  if (keys.s || keys.ArrowDown) x -= speed;
+  if (keys.a || keys.ArrowLeft) z += speed;
+  if (keys.d || keys.ArrowRight) z -= speed;
+  drive(x, z);
+}
+
+// ===== WAYPOINT BUTTONS =====
+const wpSave = new ROSLIB.Topic({ ros, name: '/waypoint/save', messageType: 'std_msgs/Empty' });
+const wpClear = new ROSLIB.Topic({ ros, name: '/waypoint/clear', messageType: 'std_msgs/Empty' });
+const wpRun = new ROSLIB.Topic({ ros, name: '/waypoint/run', messageType: 'std_msgs/Bool' });
+const wpStop = new ROSLIB.Topic({ ros, name: '/waypoint/stop', messageType: 'std_msgs/Bool' });
+document.getElementById('wp-save').addEventListener('click', () => { console.log('SAVE'); wpSave.publish(new ROSLIB.Message({})); });
+document.getElementById('wp-clear').addEventListener('click', () => wpClear.publish(new ROSLIB.Message({})));
+document.getElementById('wp-run').addEventListener('click', () => {
+  autonomous = true;
+  wpRun.publish(new ROSLIB.Message({ data: true }));
+});
+document.getElementById('wp-stop').addEventListener('click', () => {
+  autonomous = false;
+  wpStop.publish(new ROSLIB.Message({ data: false }));
+});
 
 // Sensor subscriptions
 new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix' }).subscribe(m => {
