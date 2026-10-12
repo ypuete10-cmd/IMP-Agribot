@@ -269,7 +269,8 @@ python3 ~/battery_monitor.py
 
 ## 8. Running ROS2 Nodes
 
-**RECOMMENDED (6 Oct): use the bringup launch file — one terminal starts motor driver + rosbridge + camera stream/dashboard together:**
+**RECOMMENDED: use the bringup launch file — one terminal starts the whole
+robot stack:**
 
 ```bash
 cd ~/ros2_ws
@@ -278,12 +279,29 @@ source install/setup.bash
 ros2 launch robot_control bringup.launch.py
 ```
 
-Ctrl+C in that terminal stops everything cleanly (this also prevents the 'GPIO busy' error from orphaned motor_driver processes).
+**Bringup now launches 8 processes:**
+- `motor_driver` — PWM motor control, subscribes /cmd_vel
+- `encoder_node` — 4-wheel encoder counting + odometry + TF
+- `imu_node` — BNO055 I2C IMU, publishes /imu/data
+- `env_node` — AHT30 temp/humidity, publishes /env/*
+- `gps_node` — NEO-8M UART GPS, publishes /fix
+- `ekf_node` — robot_localization, fuses /odom + /imu/data → /odometry/filtered
+- `waypoint_follower` — indoor autonomous navigation, subscribes /odometry/filtered
+- `rosbridge_server` — WebSocket bridge for dashboard
+- `camera_stream` — Flask MJPEG on port 5000
+
+Ctrl+C stops everything cleanly.
+
+Then in a **second terminal**, start the Mission Control dashboard:
+
+```bash
+python3 ~/ros2_ws/src/robot_control/dashboard/app.py  # port 8080
+```
 
 Manual mode (one terminal per node) is still useful while debugging:
 
 ```bash
-# Terminal 1 — Camera stream (port 5000) + dashboard page (/control)
+# Terminal 1 — Camera stream (port 5000) + standalone drive page (/control)
 ros2 run robot_control camera_stream
 
 # Terminal 2 — AI inference (publishes /plant_health)
@@ -292,21 +310,41 @@ ros2 run robot_control ai_inference
 # Terminal 3 — Motor driver
 ros2 run robot_control motor_driver
 
-# Terminal 4 — rosbridge (needed for the web drive dashboard)
+# Terminal 4 — Encoder odometry
+ros2 run robot_control encoder_node
+
+# Terminal 5 — IMU
+ros2 run robot_control imu_node
+
+# Terminal 6 — GPS
+ros2 run robot_control gps_node
+
+# Terminal 7 — Environmental sensor
+ros2 run robot_control env_node
+
+# Terminal 8 — EKF
+ros2 run robot_control ekf_node
+
+# Terminal 9 — Waypoint follower
+ros2 run robot_control waypoint_follower
+
+# Terminal 10 — rosbridge (needed for the web dashboard)
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 
-# Terminal 5 — Monitor
+# Terminal 11 — Monitor
 ros2 topic list
 ros2 topic echo /plant_health
-ros2 topic echo /cmd_vel
+ros2 topic echo /odom
+ros2 topic echo /imu/data
+ros2 topic echo /fix
+ros2 topic echo /odometry/filtered
 
-# Terminal 6 — Keyboard teleop (drive with keys)
+# Terminal 12 — Keyboard teleop (drive with keys)
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
-&gt; **Note:** camera_stream and ai_inference both want the webcam — run only one at a time for now (later: ai_inference subscribes to /camera/image_raw instead).
-
----
+&gt; **Note:** camera_stream and ai_inference both want the webcam —
+&gt; run only one at a time for now.
 
 ## 9. Motors (L298N + TT Motors) & Encoders
 
@@ -421,34 +459,57 @@ Pi 5 → powered separately via USB-C (power bank)
 
 ---
 
-## 11. Farmer Dashboard (Farmer-Facing UI)
+## 11. Mission Control Dashboard (Port 8080)
 
-Flask web dashboard: results table + GPS field health map. The robot writes results to a JSON file; the web page reads it and auto-refreshes.
+Unified farmer-facing web page: live sensor strip → camera + drive pad
+→ GPS map + results table. All sensor data via `roslib.js` over the
+rosbridge WebSocket (port 9090). Camera proxy routes have zero hardcoded
+IPs.
+
+**New: Keyboard control + waypoint buttons**
+- **WASD / Arrow keys** — publish `/cmd_vel` at 10 Hz (same as drive pad)
+- **Save Waypoint** — captures current EKF pose `{x, y, yaw}` to JSON
+- **Clear All** — removes all saved waypoints
+- **Run** — starts autonomous waypoint navigation (waypoint_follower takes over)
+- **Stop** — halts autonomous mode, returns to manual drive control
+- **`autonomous` flag** — prevents dashboard from publishing zero cmd_vel
+  during Run (resolves conflict with waypoint_follower)
 
 ### File structure
 
 ```
 ~/ros2_ws/src/robot_control/dashboard/
-+-- app.py              # Flask server (port 8080)
++-- app.py              # Flask server (port 8080) + camera proxy
 +-- result_logger.py    # ROS2 node: writes scans to data/results.json
-+-- data/results.json   # shared data file (robot writes, web reads)
-+-- templates/index.html # web page (auto-refreshes every 5 s)
++-- data/results.json   # shared data file
++-- templates/index.html # Mission Control page
 ```
 
-### Run — Terminal 1 (web server)
+### Camera proxy routes (no hardcoded IPs)
+
+| Route | Returns |
+|-------|---------|
+| `GET /cam` | Wrapper HTML with `&lt;img src="/cam_feed"&gt;` |
+| `GET /cam_feed` | MJPEG stream relayed from `127.0.0.1:5000/video_feed` |
+
+The proxy uses `requests` + `Flask Response(stream_with_context(gen()))`
+to forward the camera stream. This lets the dashboard embed the camera
+without cross-origin or hardcoded IP issues.
+
+### Run — Terminal 1 (robot stack)
+
+```bash
+cd ~/ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch robot_control bringup.launch.py
+```
+
+### Run — Terminal 2 (dashboard)
 
 ```bash
 python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 ```
-
-### Run — Terminal 2 (robot scans)
-
-```bash
-source /opt/ros/jazzy/setup.bash
-python3 ~/ros2_ws/src/robot_control/dashboard/result_logger.py
-```
-
-`result_logger` currently SIMULATES one waypoint scan every 10 s. In Week 6, `simulate_scan()` gets replaced with real GPS + classifier subscriptions.
 
 ### View on laptop
 
@@ -456,22 +517,44 @@ python3 ~/ros2_ws/src/robot_control/dashboard/result_logger.py
 http://[PI_IP]:8080
 ```
 
-- Port 8080 = farmer dashboard. Port 5000 = camera stream + drive controls. Do not mix them up.
-- New scans appear within ~15 s (10 s scan interval + 5 s page poll). This lag is normal.
-- The map loads tiles from OpenStreetMap — the viewing laptop needs internet.
-- No colcon build needed; run dashboard scripts directly with python3.
-- `dashboard/` lives inside the Git repo, so `git add .` picks it up automatically.
+- Port 8080 = Mission Control (sensors + camera + drive + waypoints + map + results)
+- Port 5000 = camera stream only (including standalone `/control` drive page)
+- The dashboard auto-refreshes sensor cards via rosbridge WebSocket
+- New scan results appear in the table within ~15 s
+- The map loads tiles from OpenStreetMap — viewing laptop needs internet
+- No colcon build needed for dashboard changes; Flask auto-reloads `.py`
+- `dashboard/` lives inside the Git repo, so `git add .` picks it up
 
 ### Dashboard out of sync? Check
 
 ```bash
-grep -c '"waypoint"' ~/ros2_ws/src/robot_control/dashboard/data/results.json
-curl -s http://localhost:8080/api/stats
+# Check rosbridge is running
+ros2 node list | grep rosbridge
+
+# Check sensor topics are publishing
+ros2 topic hz /odom
+ros2 topic hz /imu/data
+ros2 topic hz /fix
+ros2 topic hz /odometry/filtered
+
+# Check camera proxy health
+curl -I http://localhost:8080/cam_feed
+
+# Verify no old dashboard process is blocking the port
+curl -I http://localhost:8080
+# Should return HTTP/1.1 200 OK
+
+# Check waypoint follower state
+ros2 topic echo /waypoint/run
+ros2 topic echo /cmd_vel
 ```
 
-The two totals should match. Hard refresh the browser with Ctrl+Shift+R.
+### Browser cache issues
 
----
+If the page looks stale after a code update:
+- Hard refresh: **Ctrl+Shift+R**
+- Or open in **Incognito/Private** window
+- Or clear cache for the Pi IP in browser dev tools
 
 ## 12. Web Drive Control (rosbridge Dashboard) — NEW 6 Oct
 
@@ -776,35 +859,157 @@ Safest fix: rewrite setup.py completely from the known-good template (keep your 
 
 ---
 
-## 16. Project File Locations on Pi
+## 16. robot_localization EKF
 
-| File / Folder | Path on Raspberry Pi |
-|---------------|----------------------|
-| Camera stream node | ~/ros2_ws/src/robot_control/robot_control/camera_stream.py |
-| Capture node | ~/ros2_ws/src/robot_control/robot_control/capture.py |
-| AI inference node | ~/ros2_ws/src/robot_control/robot_control/ai_inference.py |
-| Motor driver node | ~/ros2_ws/src/robot_control/robot_control/motor_driver.py |
-| GPS node (ready, not yet deployed) | ~/ros2_ws/src/robot_control/robot_control/gps_node.py |
-| Bringup launch file | ~/ros2_ws/src/robot_control/launch/bringup.launch.py |
-| Web drive control page | ~/ros2_ws/src/robot_control/dashboard/drive/control.html (served at /control) |
-| TFLite model | ~/ros2_ws/src/robot_control/models/plant_health.tflite |
-| Class names | ~/ros2_ws/src/robot_control/models/class_names.json |
-| Training scripts | ~/ros2_ws/src/robot_control/training/ |
-| Dashboard server | ~/ros2_ws/src/robot_control/dashboard/app.py |
-| Dashboard scan node | ~/ros2_ws/src/robot_control/dashboard/result_logger.py |
-| Dashboard data | ~/ros2_ws/src/robot_control/dashboard/data/results.json |
-| Dashboard web page | ~/ros2_ws/src/robot_control/dashboard/templates/index.html |
-| Setup / entry points | ~/ros2_ws/src/robot_control/setup.py |
-| Photos (default) | ~/plant_photo.jpg |
-| Background shots | ~/bg_photos/ |
-| Webcam leaf shots | ~/leaf_shots/ |
-| Battery monitor | ~/battery_monitor.py |
-| ROS2 workspace | ~/ros2_ws/ |
-| Git repository | ~/ros2_ws/src/robot_control/ |
+*Status (12 Oct): DONE. Fuses /odom (encoders) + /imu/data (BNO055) →
+/odometry/filtered at 20 Hz. two_d_mode: true, world_frame: odom.*
 
----
+### Install
 
-## 17. Status Snapshot (8 Oct 2026)
+```bash
+sudo apt install ros-jazzy-robot-localization -y
+```
+
+### EKF config (config/ekf.yaml)
+
+```yaml
+ekf_filter_node:
+  ros__parameters:
+    frequency: 20.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+    publish_tf: true
+    world_frame: odom
+
+    odom0: /odom
+    odom0_config: [true, true, false,   # x, y, z
+                   false, false, false,  # roll, pitch, yaw
+                   true, false, false,   # vx, vy, vz
+                   false, false, true,   # vroll, vpitch, vyaw
+                   false, false, false]  # ax, ay, az
+    odom0_queue_size: 10
+    odom0_differential: false
+
+    imu0: /imu/data
+    imu0_config: [false, false, false,  # x, y, z
+                  false, false, true,   # roll, pitch, yaw
+                  false, false, false,  # vx, vy, vz
+                  false, false, true,   # vroll, vpitch, vyaw
+                  false, false, false]  # ax, ay, az
+    imu0_differential: true
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true
+```
+
+### Run the EKF
+
+```bash
+# Via bringup (recommended):
+ros2 launch robot_control bringup.launch.py
+
+# Or manually:
+ros2 run robot_localization ekf_node --ros-args --params-file ~/ros2_ws/src/robot_control/config/ekf.yaml
+```
+
+### Verify EKF output
+
+```bash
+ros2 topic echo /odometry/filtered
+ros2 topic hz /odometry/filtered
+# Expected: ~20 Hz, position tracks real robot motion
+```
+
+### Known drift
+
+Without GPS loop closure, the EKF drifts ~0.8 m per metre of hand-pushed
+travel. This is expected for dead-reckoning (encoders + IMU) indoors.
+For the demo: short waypoint legs (&lt;2 m) are accurate enough; GPS will
+correct drift when the robot moves outdoors.
+
+### navsat_transform_node (GPS pipeline, disabled indoors)
+
+The launch file includes `navsat_transform_node` for outdoor GPS
+waypoint navigation. It is currently disabled (no GPS fix indoors).
+To enable for outdoor testing:
+
+```bash
+# Uncomment in bringup.launch.py or run manually:
+ros2 run robot_localization navsat_transform_node --ros-args \
+  -p mag_declination:=0.0 \
+  -p yaw_offset:=0.0 \
+  -p zero_altitude:=true
+```
+
+## 17. Indoor Waypoint Navigation (waypoint_follower)
+
+*Status (12 Oct): DONE. Proportional control indoor navigation.
+Save waypoints from EKF pose → Run to autonomously follow them.
+15 cm position tolerance, 0.15 rad orientation tolerance.*
+
+### How it works
+
+```
+Dashboard buttons → /waypoint/save, /waypoint/run, /waypoint/stop
+    → waypoint_follower node
+        → subscribes /odometry/filtered (EKF pose)
+        → publishes /cmd_vel (only when running)
+        → saves/loads waypoints from JSON file
+```
+
+### Run
+
+```bash
+# Via bringup (recommended — starts EKF + follower together):
+ros2 launch robot_control bringup.launch.py
+```
+
+Then open the dashboard and use the buttons:
+1. **Save Waypoint** — captures current `{x, y, yaw}` from EKF
+2. **Run** — robot turns toward first waypoint, drives forward
+3. **Stop** — halts autonomous mode, returns to manual control
+4. **Clear All** — deletes all saved waypoints
+
+### Control logic
+
+| Condition | Action |
+|-----------|--------|
+| `|yaw_err| &gt; 0.5 rad` | Turn in place at `±0.3 rad/s` |
+| `|yaw_err| &lt;= 0.5 rad` | Drive forward at `0.15 * dist` capped at `0.15 m/s` |
+| `dist &lt; 0.15 m` | Waypoint reached → next waypoint or stop |
+
+### Verify
+
+```bash
+# Check waypoint follower is receiving EKF data
+ros2 topic hz /odometry/filtered
+
+# Check cmd_vel is being published during Run
+ros2 topic hz /cmd_vel
+
+# Check saved waypoints
+cat ~/ros2_ws/src/robot_control/waypoints.json
+```
+
+### Manual drive during autonomous mode
+
+The dashboard `autonomous` flag prevents it from publishing `/cmd_vel`
+when the waypoint follower is running. Press **Stop** to return to
+manual control (keyboard or drive pad).
+
+### Tuning
+
+If the robot overshoots or oscillates:
+
+```bash
+# Edit waypoint_follower.py
+# Key parameters:
+#   ANGULAR_MAX = 0.3      # rad/s
+#   LINEAR_MAX = 0.15      # m/s
+#   YAW_THRESHOLD = 0.5    # rad (turn-in-place threshold)
+#   POS_TOLERANCE = 0.15   # m
+#   ORIENTATION_TOLERANCE = 0.15  # rad
+```
+## 18. Status Snapshot (12 Oct 2026)
 
 | Area | Status |
 |------|--------|
@@ -812,15 +1017,17 @@ Safest fix: rewrite setup.py completely from the known-good template (keep your 
 | AI model (train → TFLite → Pi inference) | Done — 90.1% val accuracy, 3.5 ms/frame on Pi CPU |
 | Background class + confidence threshold | Done — retrained with Other class |
 | Domain gap fix (webcam leaf shots) | Done — sorted into class folders |
-| Farmer dashboard | Done — simulated scans; real GPS+AI hookup in Week 6 |
-| Motors (4-wheel drivetrain) | **DONE** — all 4 wheels, forward + turn verified |
-| Web drive control (rosbridge dashboard) | **Done** — browser buttons/WASD + camera feed at :5000/control |
-| One-command bringup (launch file) | **Done** — bringup.launch.py starts motor + rosbridge + camera |
-| Encoder odometry (4-wheel, signed, TF) | **DONE 7 Oct** — zero drift, ~90 ticks/m |
-| IMU (BNO055 I2C fusion) | **DONE 8 Oct** — /imu/data at 20 Hz, onboard quaternion |
-| GPS (NEO-8M UART /fix) | **DONE 8 Oct** — publishing always; fix needs sky view |
-| robot_localization EKF | Not started |
-| nav2 waypoint navigation | Not started |
-| Dashboard real data hookup | Not started |
+| Farmer dashboard | Done — Mission Control unified page live |
+| Motors (4-wheel drivetrain) | **Done** — all 4 wheels, forward + turn verified |
+| Web drive control | **Done** — embedded in dashboard + standalone /control |
+| One-command bringup (launch file) | **Done** — 8 processes: motor + encoder + IMU + env + GPS + EKF + rosbridge + camera |
+| Encoder odometry (4-wheel, signed, TF) | **Done 7 Oct** — zero drift, ~90 ticks/m |
+| IMU (BNO055 I2C fusion) | **Done 8 Oct** — /imu/data at 20 Hz, onboard quaternion |
+| GPS (NEO-8M UART /fix) | **Done 8 Oct** — publishing always; fix needs sky view |
+| Environmental sensor (AHT30) | **Done 9 Oct** — /env/temperature + /env/humidity |
+| robot_localization EKF | **Done 12 Oct** — fuses /odom + /imu/data, 20 Hz |
+| Indoor waypoint navigation | **Done 12 Oct** — proportional follower, 15 cm tolerance |
+| Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
+| Report + viva | 2 Dec 2026 |
 | Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
 | Report + viva | 2 Dec 2026 |
