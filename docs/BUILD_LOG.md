@@ -3,7 +3,72 @@
 Dated progress log with photos. Newest entries at the top.
 
 ---
+---
 
+## 14/10/2026 — Ultrasonic emergency stop + complete indoor stack
+
+**`ultrasonic_node.py`** — NEW emergency stop node:
+- 2× HC-SR04 front ultrasonic sensors, angled inward for center coverage
+- `lgpio` backend with `gpiochip 4` (Pi 5 compatible — `gpiochip 0` fails)
+- Pins: **Trig GPIO17/23**, **Echo GPIO22/27**
+- Echo pins use **1kΩ + 2kΩ voltage dividers** (5V → ~3.3V for Pi GPIO)
+- Publishes `/ultrasonic/front` (Float32, minimum distance in metres)
+- Publishes `/emergency_stop` (Bool, `True` when &lt;30 cm)
+- Waypoint follower subscribes to `/emergency_stop` and halts autonomous run
+
+**`bringup.launch.py`** now launches **9 processes:**
+`motor_driver`, `encoder_node`, `imu_node`, `env_node`, `gps_node`,
+`ekf_filter_node` (robot_localization), `navsat_transform_node` (GPS
+pipeline, standby for outdoor use), `waypoint_follower`,
+`ultrasonic_node`, `rosbridge_server`, `camera_stream`.
+
+**`waypoint_follower.py`** — added emergency stop callback:
+- Subscribes `/emergency_stop` → sets `running=False`, publishes zero `/cmd_vel`
+- Logs `"EMERGENCY STOP — obstacle detected!"` when triggered
+- Manual drive resumes cleanly after obstacle clears and Stop pressed
+
+**Previous session work still active:**
+- EKF fusing `/odom` + `/imu/data` → `/odometry/filtered` at 20 Hz
+- Indoor waypoint navigation: Save Waypoint, Run, Stop via dashboard
+- Keyboard WASD + Arrow key control
+- Dashboard: live camera, sensors, drive pad, map, results table
+- Camera proxy via Flask (no hardcoded IPs)
+
+**Bugs fixed this session:**
+1. `bringup.launch.py` syntax error — `ultrasonic_node` inserted inside
+   `navsat_transform_node`'s `Node()` call, splitting it in half. Fixed by
+   closing navsat node with `]),` before starting ultrasonic node.
+2. `lgpio gpiochip_open(0)` fails on Pi 5 → changed to `gpiochip_open(4)`
+3. Multiple dashboard layout regressions from full-file overwrites →
+   restored original HTML structure with targeted additions only
+
+**Verified end-to-end:**
+- `ros2 topic echo /ultrasonic/front` shows live distance values (~2 m
+  at rest, drops when hand waved in front)
+- `/emergency_stop = True` when obstacle &lt;30 cm in front of either sensor
+- Waypoint follower halts immediately when obstacle detected
+- Manual drive, keyboard, camera, all sensors still functional
+- All 9 processes start from single `bringup.launch.py`
+
+**Indoor stack now complete:**
+- Drive: motor_driver + encoder_node + imu_node + env_node
+- Navigation: EKF + waypoint_follower + ultrasonic_node (safety)
+- Dashboard: camera + drive pad + keyboard + waypoints + sensors + map
+- AI: camera_stream + ai_inference (manual trigger)
+
+**Remaining to December viva:**
+1. AI scan at each waypoint (capture → classify → log result automatically)
+2. Field-test waypoint accuracy on actual floor
+3. ADS1115 battery monitor (when LiPo returns)
+4. Report writing + documentation
+
+![Ultrasonic E-stop test — terminal showing /ultrasonic/front and /emergency_stop topics](https://github.com/user-attachments/assets/9ed42fd2-fc51-40f3-afd9-d9897b58a039)
+
+![Emergency stop verification — obstacle detected below 30 cm threshold](https://github.com/user-attachments/assets/85c5b798-760a-4ce8-aa27-8eb0f9c1cbbd)
+
+![HC-SR04 sensors mounted on front of chassis — angled inward, voltage dividers on echo lines](https://github.com/user-attachments/assets/66f292f3-268d-4142-80d8-bdfdaf43e541)
+
+---
 ## 12/10/2026 — Indoor waypoint navigation complete (EKF + follower + keyboard control)
 
 **robot_localization EKF** now fusing `/odom` (encoders) + `/imu/data`
