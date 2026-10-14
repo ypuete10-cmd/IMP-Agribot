@@ -4,6 +4,77 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 12/10/2026 — Indoor waypoint navigation complete (EKF + follower + keyboard control)
+
+**robot_localization EKF** now fusing `/odom` (encoders) + `/imu/data`
+(BNO055) → `/odometry/filtered` at 20 Hz. Config: `two_d_mode: true`,
+`world_frame: odom`, `odom0` provides x/y/vx/yaw_vel, `imu0` provides
+yaw/yaw_rate in differential mode. Encoder pose + twist covariances
+added to `encoder_node.py` for proper EKF weighting. IMU covariances
+already set from previous work.
+
+**EKF performance:** tracks real robot motion well; x/y drift ~0.8 m
+per metre of hand-pushed travel (expected without GPS loop closure).
+
+**`waypoint_follower.py`** — NEW indoor autonomous navigation node:
+- Subscribes `/odometry/filtered`, publishes `/cmd_vel`
+- Topics: `/waypoint/save`, `/waypoint/clear`, `/waypoint/run`, `/waypoint/stop`
+- Saves waypoints to JSON as `{x, y, yaw}` from live EKF pose
+- Proportional control: turn-in-place if `|yaw_err| &gt; 0.5 rad`,
+  otherwise drive forward at `0.15 * dist` capped at `0.15 m/s`
+- Angular capped at `±0.3 rad/s`
+- 15 cm position tolerance, 0.15 rad final orientation tolerance
+- Publishes `/cmd_vel` **only when running** — no idle spam
+
+**Dashboard (`index.html`) restored + upgraded:**
+- Keyboard control: WASD + Arrow keys publish `/cmd_vel` at 10 Hz
+- Waypoint buttons: **Save Waypoint**, **Clear All**, **Run**, **Stop**
+- `autonomous` flag prevents dashboard from publishing zeros during Run
+  (resolves cmd_vel conflict between dashboard and waypoint follower)
+- Camera: responsive 4:3 wrapper, fills drive-row column
+- Fixed sensor types: `sensor_msgs/Temperature` + `RelativeHumidity`
+  (was `std_msgs/Float32`)
+
+**`bringup.launch.py`** now launches **8 processes:**
+`motor_driver`, `encoder_node`, `imu_node`, `env_node`, `gps_node`,
+`ekf_node` (robot_localization), `rosbridge_server`, `camera_stream`.
+`navsat_transform_node` included in launch file but disabled for indoor
+use (GPS pipeline ready for outdoor switch-on).
+
+**Bugs fixed during session:**
+1. Camera iframe 404 — stray quote in `src="/cam_feed""` found via
+   access-log path: `GET /cam_feed" HTTP/1.1" 404`
+2. Missing `import requests` — nano buffer not saved; verified with `grep`
+3. `stream_with_context(gen)` missing call parens → `gen()`
+4. Browser cache stale pages → incognito + Ctrl+Shift+R
+5. Waypoint JS outside `&lt;/script&gt;` tag → moved inside
+6. Dashboard/waypointFollower `/cmd_vel` conflict → `autonomous` flag
+   in dashboard JS
+7. Undefined variable `autonomous` → declared alongside `vx, vz`
+8. Camera aspect ratio cycling → removed `max-width: 640px`
+
+**Verified end-to-end:**
+- EKF publishes `/odometry/filtered` with position tracking real motion
+- Waypoint follower: Save → Run → robot turns toward waypoint, drives
+  forward, reaches 15 cm tolerance
+- Manual drive (pad + keyboard) resumes cleanly after Stop
+- Camera live, all sensors updating, map + results table intact
+
+**Remaining to December viva:**
+1. Field-test waypoint follower on actual floor (tune gains if needed)
+2. Front ×2 HC-SR04 ultrasonic emergency stop (&lt;30 cm)
+3. ADS1115 battery monitor (when LiPo returns)
+4. DHT11 as optional cross-check sensor
+5. Report writing + documentation
+
+![Mission Control dashboard — EKF fused odometry, waypoint buttons, keyboard control](https://github.com/user-attachments/assets/ed94bb90-1534-4039-b83a-742c81b86319)
+
+![Mission Control dashboard — sensor strip and camera feed](https://github.com/user-attachments/assets/b6f200fc-3050-4607-8785-be70eed05800)
+
+![Mission Control dashboard — drive pad and heading card](https://github.com/user-attachments/assets/f3ca8958-5673-453e-8d27-62daae34d852)
+
+---
+
 ## 09/10/2026 — Mission Control dashboard LIVE
 
 Rewrote `dashboard/templates/index.html` as a single **Mission Control**
