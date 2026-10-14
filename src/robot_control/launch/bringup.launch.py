@@ -42,6 +42,8 @@ def generate_launch_description():
                  ('/gps/fix', '/fix'),
                  ('/odometry/filtered', '/odometry/filtered'),
              ]),
+     Node(package='robot_control', executable='ultrasonic_node',
+             name='ultrasonic_node', output='screen'),
         ExecuteProcess(cmd=['ros2', 'launch', 'rosbridge_server',
                             'rosbridge_websocket_launch.xml'],
                        output='screen'),

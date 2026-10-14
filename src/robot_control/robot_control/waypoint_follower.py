@@ -28,6 +28,7 @@ class WaypointFollower(Node):
         self.create_subscription(Empty, '/waypoint/clear', self.clear_cb, 10)
         self.create_subscription(Bool, '/waypoint/run', self.run_cb, 10)
         self.create_subscription(Bool, '/waypoint/stop', self.stop_cb, 10)
+        self.create_subscription(Bool, '/emergency_stop', self.emergency_cb, 10)
 
         self.timer = self.create_timer(0.1, self.loop)  # 10 Hz
         self.x = self.y = self.yaw = 0.0
@@ -120,6 +121,11 @@ class WaypointFollower(Node):
                         self.get_logger().info('All waypoints reached!')
 
         self.cmd_pub.publish(cmd)
+    def emergency_cb(self, msg):
+        if msg.data and self.running:
+            self.running = False
+            self.cmd_pub.publish(Twist())
+            self.get_logger().error('EMERGENCY STOP — obstacle detected!')
 
 
 def main(args=None):
