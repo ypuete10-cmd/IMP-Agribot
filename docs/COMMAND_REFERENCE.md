@@ -1,6 +1,6 @@
 # Pi 5 Command Reference
 
-*Updated: 6 Oct 2026 — 4-wheel drivetrain complete (forward + turn verified), web drive dashboard via rosbridge, one-command bringup launch file*
+*Updated: 14 Oct 2026 — ultrasonic emergency stop live (2× HC-SR04, /emergency_stop chain), 9-node bringup, indoor stack complete. Next: AI scan at each waypoint.*
 
 Replace `[PI_IP]` with the actual Pi IP address. The IP changes when you switch networks. (Tip: the hostname `yvette-pi5.local` may also work from Windows browsers/SSH — try it if the IP changed and you don't want to look it up.)
 
@@ -41,7 +41,7 @@ echo "source ~/ros2_ws/install/setup.bash" &gt;&gt; ~/.bashrc
 
 After this, every new terminal loads ROS2 and the workspace automatically. You only need `cd ~/ros2_ws` when building.
 
-&gt; **Note:** The farmer dashboard (Section 11) does NOT need colcon build — run its scripts directly with python3. It is not a ROS2 package.
+&gt; **Note:** The Mission Control dashboard (Section 11) does NOT need colcon build — run its scripts directly with python3. It is not a ROS2 package.
 
 ---
 
@@ -233,14 +233,14 @@ ls /dev/video*
 v4l2-ctl --list-devices
 ```
 
-### Test I2C bus (AHT20, MPU9250, BMP280)
+### Test I2C bus (BNO055, AHT30, BMP280)
 
 ```bash
 sudo i2cdetect -y 1
 ```
 
-- 0x38 = AHT20 (temperature/humidity)
-- 0x68 = MPU9250 IMU
+- 0x29 = BNO055 (IMU, onboard fusion)
+- 0x38 = AHT30 (temperature/humidity)
 - 0x76 = BMP280 (pressure)
 
 ### Check ROS2 topics
@@ -251,6 +251,9 @@ ros2 topic echo /plant_health
 ros2 topic echo /fix
 ros2 topic echo /imu/data
 ros2 topic echo /cmd_vel
+ros2 topic echo /odometry/filtered
+ros2 topic echo /ultrasonic/front
+ros2 topic echo /emergency_stop
 ```
 
 ### Check disk space
@@ -279,14 +282,16 @@ source install/setup.bash
 ros2 launch robot_control bringup.launch.py
 ```
 
-**Bringup now launches 8 processes:**
+**Bringup now launches 9 ROS nodes + rosbridge + camera:**
 - `motor_driver` — PWM motor control, subscribes /cmd_vel
 - `encoder_node` — 4-wheel encoder counting + odometry + TF
 - `imu_node` — BNO055 I2C IMU, publishes /imu/data
 - `env_node` — AHT30 temp/humidity, publishes /env/*
 - `gps_node` — NEO-8M UART GPS, publishes /fix
-- `ekf_node` — robot_localization, fuses /odom + /imu/data → /odometry/filtered
-- `waypoint_follower` — indoor autonomous navigation, subscribes /odometry/filtered
+- `ekf_filter_node` — robot_localization, /odom + /imu/data → /odometry/filtered
+- `navsat_transform_node` — GPS pipeline (standby; enable for outdoor use)
+- `waypoint_follower` — indoor autonomous navigation + emergency stop handling
+- `ultrasonic_node` — 2× HC-SR04 front sensors → /ultrasonic/front + /emergency_stop
 - `rosbridge_server` — WebSocket bridge for dashboard
 - `camera_stream` — Flask MJPEG on port 5000
 
@@ -323,34 +328,34 @@ ros2 run robot_control gps_node
 ros2 run robot_control env_node
 
 # Terminal 8 — EKF
-ros2 run robot_control ekf_node
+ros2 run robot_localization ekf_node --ros-args --params-file ~/ros2_ws/src/robot_control/config/ekf.yaml
 
 # Terminal 9 — Waypoint follower
 ros2 run robot_control waypoint_follower
 
-# Terminal 10 — rosbridge (needed for the web dashboard)
+# Terminal 10 — Ultrasonic emergency stop
+ros2 run robot_control ultrasonic_node
+
+# Terminal 11 — rosbridge
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 
-# Terminal 11 — Monitor
+# Terminal 12 — Monitor
 ros2 topic list
-ros2 topic echo /plant_health
-ros2 topic echo /odom
-ros2 topic echo /imu/data
-ros2 topic echo /fix
 ros2 topic echo /odometry/filtered
+ros2 topic echo /emergency_stop
 
-# Terminal 12 — Keyboard teleop (drive with keys)
+# Terminal 13 — Keyboard teleop
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
 &gt; **Note:** camera_stream and ai_inference both want the webcam —
 &gt; run only one at a time for now.
 
+---
+
 ## 9. Motors (L298N + TT Motors) & Encoders
 
-*Status (8 Oct): DONE — 4-wheel drivetrain + encoder odometry + IMU + GPS
-all verified. Motors: forward + turn correct. Encoders: zero drift,
-smooth bidirectional. IMU: BNO055 onboard fusion. GPS: /fix publishing.*
+*Status (14 Oct): DONE — 4-wheel drivetrain + encoder odometry + IMU + GPS + ultrasonic E-stop all verified.*
 
 ### Motor architecture (final, per-channel — no motors in parallel)
 
@@ -395,9 +400,6 @@ ros2 topic echo /wheel_ticks
 ros2 topic echo /odom
 ```
 
-Output: cumulative per-wheel counts (Int32MultiArray) and nav_msgs/Odometry
-with odom→base_link TF at 10 Hz.
-
 ### Test motors (wheels off ground)
 
 ```bash
@@ -433,6 +435,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 4. `calibrate.py` script retired — prompt timing confused leg boundaries;
    live streaming `ros2 topic echo /odom` is the reliable method
 
+---
+
 ## 10. Battery & Power Wiring
 
 Battery: 11.1V 3S 45C 5500mAh LiPo (purchased). Full charge is 12.6V — both the L298N and the buck converter accept it, so treat it as the 12V rail.
@@ -466,11 +470,11 @@ Unified farmer-facing web page: live sensor strip → camera + drive pad
 rosbridge WebSocket (port 9090). Camera proxy routes have zero hardcoded
 IPs.
 
-**New: Keyboard control + waypoint buttons**
+**Controls:**
 - **WASD / Arrow keys** — publish `/cmd_vel` at 10 Hz (same as drive pad)
 - **Save Waypoint** — captures current EKF pose `{x, y, yaw}` to JSON
 - **Clear All** — removes all saved waypoints
-- **Run** — starts autonomous waypoint navigation (waypoint_follower takes over)
+- **Run** — starts autonomous waypoint navigation
 - **Stop** — halts autonomous mode, returns to manual drive control
 - **`autonomous` flag** — prevents dashboard from publishing zero cmd_vel
   during Run (resolves conflict with waypoint_follower)
@@ -491,10 +495,6 @@ IPs.
 |-------|---------|
 | `GET /cam` | Wrapper HTML with `&lt;img src="/cam_feed"&gt;` |
 | `GET /cam_feed` | MJPEG stream relayed from `127.0.0.1:5000/video_feed` |
-
-The proxy uses `requests` + `Flask Response(stream_with_context(gen()))`
-to forward the camera stream. This lets the dashboard embed the camera
-without cross-origin or hardcoded IP issues.
 
 ### Run — Terminal 1 (robot stack)
 
@@ -523,30 +523,19 @@ http://[PI_IP]:8080
 - New scan results appear in the table within ~15 s
 - The map loads tiles from OpenStreetMap — viewing laptop needs internet
 - No colcon build needed for dashboard changes; Flask auto-reloads `.py`
-- `dashboard/` lives inside the Git repo, so `git add .` picks it up
+- **Edit the HTML with targeted changes only** — full-file overwrites have
+  caused multiple layout regressions. Restore from git if regressed:
+  `git checkout -- dashboard/templates/index.html` then re-apply additions.
 
 ### Dashboard out of sync? Check
 
 ```bash
-# Check rosbridge is running
-ros2 node list | grep rosbridge
-
-# Check sensor topics are publishing
-ros2 topic hz /odom
-ros2 topic hz /imu/data
-ros2 topic hz /fix
+ros2 node list | grep rosbridge          # rosbridge running?
+ros2 topic hz /odom                       # sensor topics alive?
 ros2 topic hz /odometry/filtered
-
-# Check camera proxy health
-curl -I http://localhost:8080/cam_feed
-
-# Verify no old dashboard process is blocking the port
-curl -I http://localhost:8080
-# Should return HTTP/1.1 200 OK
-
-# Check waypoint follower state
-ros2 topic echo /waypoint/run
-ros2 topic echo /cmd_vel
+curl -I http://localhost:8080/cam_feed    # camera proxy health
+curl -I http://localhost:8080             # port not blocked (HTTP 200)
+ros2 topic echo /emergency_stop           # E-stop chain alive
 ```
 
 ### Browser cache issues
@@ -554,52 +543,44 @@ ros2 topic echo /cmd_vel
 If the page looks stale after a code update:
 - Hard refresh: **Ctrl+Shift+R**
 - Or open in **Incognito/Private** window
-- Or clear cache for the Pi IP in browser dev tools
 
-## 12. Web Drive Control (rosbridge Dashboard) — NEW 6 Oct
+---
 
-*Drive the robot from any browser (laptop or phone) on the same network. Buttons + WASD/arrow keys, speed slider, embedded camera feed, auto-stop on button release / tab blur. roslib.js talks WebSocket to rosbridge; no changes to motor_driver.py needed.*
+## 12. Web Drive Control
 
-### How it works
+Two ways to drive from a browser:
 
-```
-Browser (control.html, roslib.js)
-    | WebSocket
-    v
-rosbridge_server on Pi (port 9090) ← started by bringup.launch.py
-    | publishes /cmd_vel at 10 Hz while a button is held
-    v
-motor_driver node (watchdog stops motors 1 s after last message)
-```
+**1. Mission Control dashboard (recommended)** — embedded drive pad at
+`:8080` with all sensor cards visible.
 
-### Files
+**2. Standalone drive page** — served by `camera_stream.py` at
+`:5000/control`. Lightweight, good for quick tests.
 
-| File | Path on Pi |
-|------|-----------|
-| Control page | ~/ros2_ws/src/robot_control/dashboard/drive/control.html (served by Flask at /control) |
-| Flask route | @app.route('/control') in camera_stream.py |
-| rosbridge | ros-jazzy-rosbridge-suite (installed 6 Oct) |
+Both use `roslib.js` → WebSocket → rosbridge (port 9090) → publish
+`/cmd_vel` at 10 Hz while a button is held. Auto-stop on release/blur.
+Speed slider. WASD + arrow keys + on-screen buttons.
 
 ### Use it
 
 ```bash
-# Everything via bringup (recommended):
 ros2 launch robot_control bringup.launch.py
 ```
 
-Then open in a browser on the same network:
-
 ```
-http://[PI_IP]:5000/control
+http://[PI_IP]:8080          # Mission Control
+http://[PI_IP]:5000/control  # Standalone drive page
 ```
 
-The status badge must show **CONNECTED** (green). Hold a button to drive, release to stop. Verify the chain with:
+The status badge must show **CONNECTED** (green). Verify the chain with:
 
 ```bash
 ros2 topic echo /cmd_vel
 ```
 
-&gt; **Note:** control.html uses `location.hostname` for the WebSocket and `iframe src="/"` for the camera — no hardcoded IP, so it survives hotspot IP changes. Try `http://yvette-pi5.local:5000/control` if the IP is unknown.
+&gt; **Note:** both pages use `location.hostname` for the WebSocket and
+&gt; relative paths for the camera — no hardcoded IP, so they survive
+&gt; hotspot IP changes. Try `http://yvette-pi5.local:8080` if the IP is
+&gt; unknown.
 
 ---
 
@@ -607,8 +588,7 @@ ros2 topic echo /cmd_vel
 
 *Status (8 Oct): DONE. BNO055 at I2C address 0x29 (address pin high).
 Chip ID 0xa0 confirmed. NDOF mode 0x0C, onboard fusion processor outputs
-ready quaternion — simpler than MPU9250 + Madgwick. Publishes /imu/data
-at 20 Hz.*
+ready quaternion. Publishes /imu/data at 20 Hz.*
 
 ### Install dependency
 
@@ -616,12 +596,11 @@ at 20 Hz.*
 pip3 install smbus2 --break-system-packages   # if not already installed
 ```
 
-### Enable I2C (already done during initial setup)
+### Enable I2C (already done)
 
 ```bash
 sudo apt install i2c-tools -y
 sudo usermod -aG i2c $USER
-# Reboot after adding group
 ```
 
 Verify the BNO055 is on the bus:
@@ -643,24 +622,19 @@ Output: `sensor_msgs/Imu` at 20 Hz with:
 - **Angular velocity** — gyro in rad/s (register 0x14, scale 1/16 → dps → rad/s)
 - **Linear acceleration** — in m/s² (register 0x28, scale 1/100)
 
-Covariances are set for `robot_localization` EKF integration.
-
 ### Verify IMU is working
 
 ```bash
-# Check quaternion responds to yaw
-ros2 topic echo /imu/data | grep -A1 orientation
-
-# Check gyro noise at rest (~0.005 rad/s is normal)
-ros2 topic echo /imu/data | grep -A1 angular_velocity
+ros2 topic echo /imu/data | grep -A1 orientation        # responds to yaw
+ros2 topic echo /imu/data | grep -A1 angular_velocity   # ~0.005 rad/s noise at rest
 ```
 
 ### Important: mount flat before nav2
 
 The BNO055 board is currently tilted ~18° (x=-3.1 m/s² at rest instead
-of near-zero). Remount flat before running nav2/robot_localization, or
-the gravity vector will bias the EKF. Also perform a figure-8 magnetic
-calibration before the demo day for best heading accuracy.
+of near-zero). Remount flat before running nav2/robot_localization outdoors,
+or the gravity vector will bias the EKF. Also perform a figure-8 magnetic
+calibration before the demo day.
 
 ### BNO055 vs MPU9250
 
@@ -671,11 +645,14 @@ external sensor fusion library (e.g. Madgwick/Mahony), simplifying the
 software stack. Trade-off: less raw-sensor transparency, but sufficient
 for this project's accuracy requirements.
 
+---
+
 ## 14. GPS (NEO-8M GNSS)
 
 *Status (8 Oct): DONE. NEO-8M on /dev/ttyAMA0 @9600 baud, publishes
 /fix (NavSatFix) at 1 Hz ALWAYS. Indoors: stream healthy, status=-1
-(no fix) as expected. Outdoors: position fix when sky view available.*
+as expected. Outdoors: position fix with sky view. navsat_transform_node
+is in the bringup launch on standby for outdoor use.*
 
 ### Pi 5 UART configuration (BOTH required)
 
@@ -704,7 +681,6 @@ sudo reboot
 
 ```bash
 ls -la /dev/ttyAMA0
-# Should exist and be readable by dialout group
 ```
 
 **Note:** `/dev/ttyAMA0` = GPIO header UART (GPIO14/15).
@@ -727,13 +703,12 @@ Output: `sensor_msgs/NavSatFix` at 1 Hz:
 - **status = -1** (NO_FIX) + lat/lon = 0.0/0.0 when indoors/no satellites
 - **status = 0** (FIX) + real lat/lon when sky view available
 
-The node publishes **always** so downstream nodes (EKF, dashboard)
-never wait on a silent topic.
+The node publishes **always** so downstream nodes never wait on a
+silent topic.
 
 ### Verify GPS stream
 
 ```bash
-# Check raw NMEA sentences directly
 python3 -c "
 import serial
 s = serial.Serial('/dev/ttyAMA0', 9600, timeout=1)
@@ -743,6 +718,9 @@ for _ in range(5):
 ```
 
 You should see `$GNGGA` or `$GPGGA` sentences.
+
+---
+
 ## 15. Quick Fixes
 
 ### NumPy / OpenCV conflict (cv2 import crash with NumPy 2.x)
@@ -754,7 +732,6 @@ pip3 install "numpy==1.26.4" --break-system-packages
 ### Camera device number changed after reboot
 
 ```bash
-# Find the working device number
 python3 -c "
 import cv2
 for i in range(10):
@@ -789,20 +766,22 @@ source ~/ros2_ws/install/setup.bash
 sudo apt --fix-broken install -y
 ```
 
-### ROS2 install dependency conflict (liblz4/libzstd)
-
-```bash
-sudo apt install --allow-downgrades liblz4-1=1.9.4-1build1 libzstd1=1.5.5+dfsg2-2build1 -y
-sudo apt install liblz4-dev libzstd-dev -y
-sudo apt install ros-jazzy-ros-base python3-pip i2c-tools -y
-```
-
-### GPIO busy (lgpio.error) when starting motor_driver
+### GPIO busy (lgpio.error) when starting a GPIO node
 
 ```bash
 pkill -f motor_driver
+pkill -f encoder_node
+pkill -f ultrasonic_node
 ```
-A stale motor_driver process is still holding the GPIO pins. Kill it, then rerun the node.
+A stale process is still holding the GPIO pins. Kill it, then rerun the node.
+
+### `lgpio.gpiochip_open(0)` fails on Pi 5 ("chip not found")
+
+Pi 5 exposes GPIO on **gpiochip 4**, not 0:
+
+```python
+h = lgpio.gpiochip_open(4)
+```
 
 ### Motors buzz but do not spin
 
@@ -830,7 +809,7 @@ sudo apt install ros-jazzy-teleop-twist-keyboard -y
 sudo apt update
 sudo apt install ros-jazzy-rosbridge-suite -y
 ```
-Stale cache: the repo published newer packages; update first, then install.
+Stale cache: update first, then install.
 
 ### Dashboard shows ERROR / DISCONNECTED
 
@@ -846,7 +825,14 @@ cd ~/ros2_ws
 colcon build --symlink-install
 source install/setup.bash
 ```
-Cause: build failed or aborted before copying the launch file into install/. Check setup.py has: `('share/' + package_name + '/launch', glob('launch/*.launch.py'))`, and the `launch/` folder exists in the package source.
+Cause: build failed or aborted before copying the launch file. Check setup.py has: `('share/' + package_name + '/launch', glob('launch/*.launch.py'))`.
+
+### bringup.launch.py syntax error after adding a node
+
+New node was inserted **inside** the previous node's `Node()` call —
+the error points at a line *below* where you edited. Close the previous
+entry completely with `]),` before starting the new node. Check
+bracket/paren balance around every edit.
 
 ### setup.py SyntaxError / NameError after editing
 
@@ -855,11 +841,123 @@ Common traps when adding the launch line by hand:
 - Typo: `find_package` → `find_packages`
 - `os.path.join` used without: `import os`
 
-Safest fix: rewrite setup.py completely from the known-good template (keep your console_scripts entry points).
+Safest fix: rewrite setup.py completely from the known-good template.
+
+### Dashboard `NameError: name 'requests' is not defined`
+
+```bash
+grep "import requests" ~/ros2_ws/src/robot_control/dashboard/app.py
+```
+If missing, add it and save. Lesson: verify with grep after editing in
+nano — unsaved buffers silently fail.
+
+### Dashboard `TypeError: 'function' object is not iterable`
+
+The `stream_with_context` call is missing parentheses:
+
+```python
+# WRONG
+return Response(stream_with_context(gen), mimetype='multipart/x-mixed-replace')
+
+# CORRECT
+return Response(stream_with_context(gen()), mimetype='multipart/x-mixed-replace')
+```
+
+### Camera iframe 404 despite proxy healthy
+
+Check the access log for a stray quote in the `src` attribute:
+
+```bash
+# Look for: GET /cam_feed" HTTP/1.1" 404
+curl -I http://localhost:8080/cam_feed"
+# Fix: remove the extra " from the iframe src in index.html
+```
+
+### Dashboard page looks stale after code update
+
+- Hard refresh: **Ctrl+Shift+R**
+- Or open in **Incognito/Private** window
+- `app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0` is set in app.py
+
+### Dashboard HTML layout regressed after an edit
+
+Full-file overwrites caused multiple layout regressions. Restore the
+last good version and re-apply only targeted additions:
+
+```bash
+git checkout -- dashboard/templates/index.html   # restore from last commit
+git diff                                          # then re-apply your addition
+```
+
+### Port 8080 already in use (hung dashboard process)
+
+```bash
+pkill -f "app.py"
+sleep 1
+curl -I http://localhost:8080
+```
+
+### Waypoint buttons dead / waypoint JS rendered as HTML
+
+The `&lt;/script&gt;` tag was closed before the waypoint JS. All dashboard
+JS must live inside the single `&lt;script&gt;...&lt;/script&gt;` block. If the
+page regressed, restore from git (see above).
+
+### Waypoint follower ignores obstacle
+
+E-stop integration added 14 Oct. Verify both nodes are running:
+
+```bash
+ros2 node list | grep ultrasonic
+ros2 topic echo /emergency_stop
+```
 
 ---
 
-## 16. robot_localization EKF
+## 16. Ultrasonic Emergency Stop (HC-SR04)
+
+*Status (14 Oct): DONE. 2× front HC-SR04 sensors angled inward for center
+coverage. /emergency_stop = True when obstacle &lt;30 cm. Waypoint follower
+halts autonomous run on trigger.*
+
+### Wiring
+
+| Sensor | Trig GPIO | Echo GPIO | Note |
+|--------|-----------|-----------|------|
+| Left | GPIO17 (Pin 11) | GPIO22 (Pin 15) | Echo via 1kΩ + 2kΩ voltage divider |
+| Right | GPIO23 (Pin 16) | GPIO27 (Pin 13) | Echo via 1kΩ + 2kΩ voltage divider |
+
+HC-SR04 Echo outputs 5V — the divider (1kΩ series + 2kΩ to GND) scales
+it to ~3.3V to protect the Pi inputs. Trig is 3.3V-safe as-is (sensor
+triggers at ~2.5V). VCC → 5V red rail, GND → blue rail.
+
+### Run + verify
+
+```bash
+ros2 run robot_control ultrasonic_node
+ros2 topic echo /ultrasonic/front    # live distance in metres (min of both)
+ros2 topic echo /emergency_stop      # True when &lt;30 cm
+
+# Wave a hand in front of either sensor → /emergency_stop flips True
+```
+
+### Safety chain
+
+```
+HC-SR04 × 2 → ultrasonic_node → /ultrasonic/front (Float32, metres)
+                              → /emergency_stop (Bool, &lt;30 cm)
+                                    ↓
+              waypoint_follower: running=False, zero /cmd_vel,
+              logs "EMERGENCY STOP — obstacle detected!"
+```
+
+Manual drive (keyboard/pad) is unaffected — the E-stop halts only the
+autonomous run. Any future sensor (bump switch, IR) can publish to the
+same `/emergency_stop` topic to join the chain.
+
+---
+
+## 17. robot_localization EKF
 
 *Status (12 Oct): DONE. Fuses /odom (encoders) + /imu/data (BNO055) →
 /odometry/filtered at 20 Hz. two_d_mode: true, world_frame: odom.*
@@ -882,20 +980,20 @@ ekf_filter_node:
     world_frame: odom
 
     odom0: /odom
-    odom0_config: [true, true, false,   # x, y, z
-                   false, false, false,  # roll, pitch, yaw
-                   true, false, false,   # vx, vy, vz
-                   false, false, true,   # vroll, vpitch, vyaw
-                   false, false, false]  # ax, ay, az
+    odom0_config: [true, true, false,
+                   false, false, false,
+                   true, false, false,
+                   false, false, true,
+                   false, false, false]
     odom0_queue_size: 10
     odom0_differential: false
 
     imu0: /imu/data
-    imu0_config: [false, false, false,  # x, y, z
-                  false, false, true,   # roll, pitch, yaw
-                  false, false, false,  # vx, vy, vz
-                  false, false, true,   # vroll, vpitch, vyaw
-                  false, false, false]  # ax, ay, az
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
     imu0_differential: true
     imu0_queue_size: 10
     imu0_remove_gravitational_acceleration: true
@@ -914,79 +1012,64 @@ ros2 run robot_localization ekf_node --ros-args --params-file ~/ros2_ws/src/robo
 ### Verify EKF output
 
 ```bash
-ros2 topic echo /odometry/filtered
 ros2 topic hz /odometry/filtered
+ros2 topic echo /odometry/filtered
 # Expected: ~20 Hz, position tracks real robot motion
 ```
 
 ### Known drift
 
 Without GPS loop closure, the EKF drifts ~0.8 m per metre of hand-pushed
-travel. This is expected for dead-reckoning (encoders + IMU) indoors.
-For the demo: short waypoint legs (&lt;2 m) are accurate enough; GPS will
-correct drift when the robot moves outdoors.
+travel. Expected for dead-reckoning indoors. Short waypoint legs (&lt;2 m)
+are accurate enough for the demo; GPS corrects drift outdoors via
+navsat_transform_node (already in the launch file, standby).
 
-### navsat_transform_node (GPS pipeline, disabled indoors)
+---
 
-The launch file includes `navsat_transform_node` for outdoor GPS
-waypoint navigation. It is currently disabled (no GPS fix indoors).
-To enable for outdoor testing:
+## 18. Indoor Waypoint Navigation (waypoint_follower)
 
-```bash
-# Uncomment in bringup.launch.py or run manually:
-ros2 run robot_localization navsat_transform_node --ros-args \
-  -p mag_declination:=0.0 \
-  -p yaw_offset:=0.0 \
-  -p zero_altitude:=true
-```
-
-## 17. Indoor Waypoint Navigation (waypoint_follower)
-
-*Status (12 Oct): DONE. Proportional control indoor navigation.
-Save waypoints from EKF pose → Run to autonomously follow them.
-15 cm position tolerance, 0.15 rad orientation tolerance.*
+*Status (12–14 Oct): DONE. Proportional control indoor navigation with
+emergency stop integration. 15 cm position tolerance, 0.15 rad
+orientation tolerance.*
 
 ### How it works
 
 ```
-Dashboard buttons → /waypoint/save, /waypoint/run, /waypoint/stop
-    → waypoint_follower node
-        → subscribes /odometry/filtered (EKF pose)
-        → publishes /cmd_vel (only when running)
-        → saves/loads waypoints from JSON file
+Dashboard buttons → /waypoint/save, /waypoint/clear, /waypoint/run, /waypoint/stop
+ultrasonic_node   → /emergency_stop (halts run)
+    ↓
+waypoint_follower → subscribes /odometry/filtered (EKF pose)
+                  → publishes /cmd_vel (only when running)
+                  → saves/loads waypoints from waypoints.json
 ```
-
-### Run
-
-```bash
-# Via bringup (recommended — starts EKF + follower together):
-ros2 launch robot_control bringup.launch.py
-```
-
-Then open the dashboard and use the buttons:
-1. **Save Waypoint** — captures current `{x, y, yaw}` from EKF
-2. **Run** — robot turns toward first waypoint, drives forward
-3. **Stop** — halts autonomous mode, returns to manual control
-4. **Clear All** — deletes all saved waypoints
 
 ### Control logic
 
 | Condition | Action |
 |-----------|--------|
+| `/emergency_stop` = True | Halt: running=False, zero /cmd_vel |
 | `|yaw_err| &gt; 0.5 rad` | Turn in place at `±0.3 rad/s` |
 | `|yaw_err| &lt;= 0.5 rad` | Drive forward at `0.15 * dist` capped at `0.15 m/s` |
 | `dist &lt; 0.15 m` | Waypoint reached → next waypoint or stop |
 
+### Run
+
+```bash
+# Via bringup (EKF + follower + ultrasonic start together):
+ros2 launch robot_control bringup.launch.py
+```
+
+Dashboard workflow:
+1. **Save Waypoint** — captures current `{x, y, yaw}` from EKF
+2. **Run** — robot turns toward first waypoint, drives forward
+3. **Stop** — halts autonomous mode, returns to manual control
+4. **Clear All** — deletes all saved waypoints
+
 ### Verify
 
 ```bash
-# Check waypoint follower is receiving EKF data
-ros2 topic hz /odometry/filtered
-
-# Check cmd_vel is being published during Run
-ros2 topic hz /cmd_vel
-
-# Check saved waypoints
+ros2 topic hz /odometry/filtered     # EKF feeding the follower
+ros2 topic hz /cmd_vel               # publishing during Run
 cat ~/ros2_ws/src/robot_control/waypoints.json
 ```
 
@@ -998,18 +1081,54 @@ manual control (keyboard or drive pad).
 
 ### Tuning
 
-If the robot overshoots or oscillates:
+If the robot overshoots or oscillates, edit `waypoint_follower.py`:
 
-```bash
-# Edit waypoint_follower.py
-# Key parameters:
-#   ANGULAR_MAX = 0.3      # rad/s
-#   LINEAR_MAX = 0.15      # m/s
-#   YAW_THRESHOLD = 0.5    # rad (turn-in-place threshold)
-#   POS_TOLERANCE = 0.15   # m
-#   ORIENTATION_TOLERANCE = 0.15  # rad
+```python
+ANGULAR_MAX = 0.3       # rad/s
+LINEAR_MAX = 0.15       # m/s
+YAW_THRESHOLD = 0.5     # rad (turn-in-place threshold)
+POS_TOLERANCE = 0.15    # m
+ORIENTATION_TOLERANCE = 0.15   # rad
 ```
-## 18. Status Snapshot (12 Oct 2026)
+
+---
+
+## 19. Project File Locations on Pi
+
+| File / Folder | Path on Raspberry Pi |
+|---------------|----------------------|
+| Camera stream node | ~/ros2_ws/src/robot_control/robot_control/camera_stream.py |
+| Capture node | ~/ros2_ws/src/robot_control/robot_control/capture.py |
+| AI inference node | ~/ros2_ws/src/robot_control/robot_control/ai_inference.py |
+| Motor driver node | ~/ros2_ws/src/robot_control/robot_control/motor_driver.py |
+| Encoder node | ~/ros2_ws/src/robot_control/robot_control/encoder_node.py |
+| IMU node | ~/ros2_ws/src/robot_control/robot_control/imu_node.py |
+| GPS node | ~/ros2_ws/src/robot_control/robot_control/gps_node.py |
+| Env sensor node | ~/ros2_ws/src/robot_control/robot_control/env_node.py |
+| Ultrasonic node | ~/ros2_ws/src/robot_control/robot_control/ultrasonic_node.py |
+| Waypoint follower | ~/ros2_ws/src/robot_control/robot_control/waypoint_follower.py |
+| Bringup launch file | ~/ros2_ws/src/robot_control/launch/bringup.launch.py |
+| EKF config | ~/ros2_ws/src/robot_control/config/ekf.yaml |
+| Waypoints file | ~/ros2_ws/src/robot_control/waypoints.json |
+| Web drive control page | ~/ros2_ws/src/robot_control/dashboard/drive/control.html (served at /control) |
+| TFLite model | ~/ros2_ws/src/robot_control/models/plant_health.tflite |
+| Class names | ~/ros2_ws/src/robot_control/models/class_names.json |
+| Training scripts | ~/ros2_ws/src/robot_control/training/ |
+| Dashboard server | ~/ros2_ws/src/robot_control/dashboard/app.py |
+| Dashboard scan node | ~/ros2_ws/src/robot_control/dashboard/result_logger.py |
+| Dashboard data | ~/ros2_ws/src/robot_control/dashboard/data/results.json |
+| Dashboard web page | ~/ros2_ws/src/robot_control/dashboard/templates/index.html |
+| Setup / entry points | ~/ros2_ws/src/robot_control/setup.py |
+| Photos (default) | ~/plant_photo.jpg |
+| Background shots | ~/bg_photos/ |
+| Webcam leaf shots | ~/leaf_shots/ |
+| Battery monitor | ~/battery_monitor.py |
+| ROS2 workspace | ~/ros2_ws/ |
+| Git repository | ~/ros2_ws/src/robot_control/ |
+
+---
+
+## 20. Status Snapshot (14 Oct 2026)
 
 | Area | Status |
 |------|--------|
@@ -1018,16 +1137,18 @@ If the robot overshoots or oscillates:
 | Background class + confidence threshold | Done — retrained with Other class |
 | Domain gap fix (webcam leaf shots) | Done — sorted into class folders |
 | Farmer dashboard | Done — Mission Control unified page live |
-| Motors (4-wheel drivetrain) | **Done** — all 4 wheels, forward + turn verified |
-| Web drive control | **Done** — embedded in dashboard + standalone /control |
-| One-command bringup (launch file) | **Done** — 8 processes: motor + encoder + IMU + env + GPS + EKF + rosbridge + camera |
-| Encoder odometry (4-wheel, signed, TF) | **Done 7 Oct** — zero drift, ~90 ticks/m |
-| IMU (BNO055 I2C fusion) | **Done 8 Oct** — /imu/data at 20 Hz, onboard quaternion |
-| GPS (NEO-8M UART /fix) | **Done 8 Oct** — publishing always; fix needs sky view |
-| Environmental sensor (AHT30) | **Done 9 Oct** — /env/temperature + /env/humidity |
-| robot_localization EKF | **Done 12 Oct** — fuses /odom + /imu/data, 20 Hz |
-| Indoor waypoint navigation | **Done 12 Oct** — proportional follower, 15 cm tolerance |
+| Motors (4-wheel drivetrain) | Done — all 4 wheels, forward + turn verified |
+| Web drive control | Done — embedded in dashboard + standalone /control |
+| One-command bringup | Done — 9 nodes + rosbridge + camera stream |
+| Encoder odometry (4-wheel, signed, TF) | Done 7 Oct — zero drift, ~90 ticks/m |
+| IMU (BNO055 I2C fusion) | Done 8 Oct — /imu/data at 20 Hz |
+| GPS (NEO-8M UART /fix) | Done 8 Oct — publishing always; fix needs sky view |
+| Environmental sensor (AHT30) | Done 9 Oct — /env/temperature + /env/humidity |
+| robot_localization EKF | Done 12 Oct — /odometry/filtered at 20 Hz |
+| Indoor waypoint navigation | Done 12 Oct — proportional follower, 15 cm tolerance |
+| Ultrasonic emergency stop | **Done 14 Oct** — 2× HC-SR04, /emergency_stop &lt;30 cm, follower halts |
+| Indoor stack | **COMPLETE** — one bringup launch, verified end-to-end |
+| AI scan at each waypoint | Not started |
+| Battery monitor (ADS1115) | Not started (when LiPo returns) |
 | Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
-| Report + viva | 2 Dec 2026 |
-| Battery | Done — 11.1V 3S 45C 5500mAh LiPo purchased |
-| Report + viva | 2 Dec 2026 |
+| Report + viva | 25 Nov / 30 Nov / 2 Dec 2026 |
