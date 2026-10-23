@@ -4,8 +4,8 @@
 A Raspberry Pi 5–powered rover that navigates to GPS waypoints, captures plant
 images, and classifies crop health on-device using a TFLite model — with
 real-time sensor data, teleop drive control, indoor autonomous waypoint
-navigation, and results displayed on a unified farmer-facing Mission Control
-dashboard.
+navigation with ultrasonic emergency stop, and results displayed on a unified
+farmer-facing Mission Control dashboard.
 
 ![AgriBot system](https://github.com/user-attachments/assets/dc5bf120-d234-43b8-aae1-257221774d6b)
 
@@ -21,6 +21,7 @@ dashboard.
 | BNO055 IMU (I2C, onboard fusion) | Orientation + gyro + accel for EKF |
 | NEO-8M GNSS (UART) | GPS waypoints + position fix |
 | 4× LM393 wheel encoders (GPIO) | Odometry + distance tracking |
+| 2× HC-SR04 ultrasonic (GPIO) | Front obstacle detection + emergency stop |
 | AHT30 (I2C) | Temperature + humidity |
 | 4× TT motors + dual L298N drivers | 4-wheel differential drive |
 | 3S LiPo 11.1V 5500mAh | Power (~3.5 h runtime) |
@@ -36,40 +37,38 @@ dashboard.
 
 ## Software Architecture
 
-- **ROS2 package `robot_control`** — 8 live processes:
+- **ROS2 package `robot_control`** — 9 live nodes:
   - `camera_stream` — Flask MJPEG stream (port 5000)
   - `motor_driver` — PWM differential drive, subscribes `/cmd_vel`
   - `encoder_node` — 4-wheel counting + signed odometry + TF
   - `imu_node` — BNO055 I2C fusion, publishes `/imu/data` at 20 Hz
   - `gps_node` — NEO-8M UART parser, publishes `/fix` at 1 Hz
   - `env_node` — AHT30 temp/humidity, publishes `/env/*`
-  - `ekf_node` — `robot_localization`, fuses `/odom` + `/imu/data` → `/odometry/filtered`
-  - `waypoint_follower` — indoor autonomous nav, subscribes `/odometry/filtered`
+  - `ekf_filter_node` — robot_localization, fuses `/odom` + `/imu/data` → `/odometry/filtered`
+  - `waypoint_follower` — indoor autonomous navigation with emergency-stop handling
+  - `ultrasonic_node` — 2× HC-SR04 front sensors, publishes `/ultrasonic/front` + `/emergency_stop`
   - `ai_inference` — TFLite classification, publishes `/plant_health`
+
+- **Safety chain:** `ultrasonic_node` publishes `/emergency_stop` (True when
+  obstacle &lt;30 cm) → `waypoint_follower` halts autonomous run and zeroes
+  `/cmd_vel`, logging "EMERGENCY STOP — obstacle detected!"
 
 - **AI pipeline** — PlantVillage → 16-class subset (15 diseases + Other) →
   MobileNetV3-Small transfer learning → TFLite float16 (~90.1% val accuracy)
 
 - **Mission Control dashboard** (Flask, port 8080) — unified page with live
-  sensor cards (GPS, odom, heading, environment, AI scan), embedded camera +
-  drive pad, **keyboard WASD/arrow control**, **waypoint Save/Run/Stop buttons**,
-  GPS health map, results table. All sensor data via `roslib.js` over rosbridge
-  WebSocket. Camera proxy with zero hardcoded IPs.
-
-- **Web drive control** — browser teleop at `/control` (standalone) and
-  embedded in Mission Control. WASD + speed slider + auto-stop.
+  sensor cards (GPS, odom, heading, environment, AI scan, ultrasonic distance,
+  E-stop status), embedded camera + drive pad, GPS health map, results table.
+  All sensor data via `roslib.js` over rosbridge WebSocket. Camera proxy with
+  zero hardcoded IPs. Keyboard WASD/arrows + waypoint Save/Run/Stop buttons.
 
 - **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
-  starts the full robot stack (8 processes: 7 ROS nodes + camera stream).
+  starts the full robot stack (9 ROS nodes + rosbridge + camera stream),
+  with `navsat_transform_node` in the launch file on standby for outdoor GPS use.
 
 ---
 
 ## Results
-
-**EKF + indoor waypoint navigation** — Mission Control dashboard with
-waypoint buttons and keyboard control (12 Oct 2026):
-
-![Mission Control dashboard — EKF fused odometry, waypoint buttons, keyboard control](https://github.com/user-attachments/assets/87e11ea6-0cc0-495c-aa7c-23efc47eb958)
 
 **Mission Control dashboard** — live sensor strip, camera, drive pad, GPS map,
 and results table (9 Oct 2026):
@@ -101,7 +100,7 @@ on phone (30 Sep 2026):
 
 ```
 robot_control/
-├── robot_control/              # ROS2 nodes
+├── robot_control/        # ROS2 nodes
 │   ├── camera_stream.py
 │   ├── capture.py
 │   ├── ai_inference.py
@@ -110,20 +109,21 @@ robot_control/
 │   ├── imu_node.py
 │   ├── gps_node.py
 │   ├── env_node.py
-│   └── waypoint_follower.py    # Indoor autonomous navigation
+│   ├── waypoint_follower.py
+│   └── ultrasonic_node.py
 ├── launch/
-│   └── bringup.launch.py       # 8-process one-command bringup
+│   └── bringup.launch.py     # One-command robot stack bringup
 ├── config/
-│   └── ekf.yaml                # robot_localization EKF config
-├── dashboard/                    # Mission Control (Flask)
-│   ├── app.py                    # Server + camera proxy
+│   └── ekf.yaml              # robot_localization EKF config
+├── dashboard/                  # Mission Control (Flask)
+│   ├── app.py                  # Server + camera proxy
 │   ├── result_logger.py
 │   ├── data/results.json
-│   ├── templates/index.html      # Mission Control page
-│   └── drive/control.html        # Standalone drive page
-├── models/                       # plant_health.tflite + class_names.json
-├── training/                     # PlantVillage training pipeline scripts
-└── docs/                         # Build log, status, command reference, figures
+│   ├── templates/index.html    # Mission Control page
+│   └── drive/control.html      # Standalone drive page
+├── models/                     # plant_health.tflite + class_names.json
+├── training/                   # PlantVillage training pipeline scripts
+└── docs/                       # Build log, status, command reference, figures
 ```
 
 ---
@@ -134,7 +134,7 @@ robot_control/
 # 1. SSH into the Pi
 ssh yvette_pi@[PI_IP]
 
-# 2. Start the robot stack (8 processes: 7 ROS nodes + camera stream)
+# 2. Start the robot stack (9 nodes + rosbridge + camera)
 cd ~/ros2_ws
 colcon build --symlink-install
 source install/setup.bash
@@ -164,8 +164,8 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | IMU publish rate | 20 Hz (NDOF mode, onboard fusion) |
 | GPS publish rate | 1 Hz (always publishing, even indoors) |
 | Encoder odometry | 10 Hz, ~90 ticks/m, ±10% per-leg |
-| EKF output | 20 Hz, fuses encoders + IMU (two_d_mode) |
-| Waypoint navigation | Proportional control, 15 cm tolerance, 0.15 rad orientation |
+| EKF output | /odometry/filtered at 20 Hz |
+| Emergency stop | 2× HC-SR04, triggers &lt;30 cm |
 | Dashboard | Flask + roslib.js + Leaflet + OpenStreetMap |
 | Web drive | rosbridge WebSocket, /cmd_vel at 10 Hz |
 
@@ -184,13 +184,14 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Encoder odometry complete | 7 Oct 2026 |
 | Sensor stack complete (IMU + GPS) | 8 Oct 2026 |
 | Mission Control dashboard live | 9 Oct 2026 |
-| **EKF + indoor waypoint navigation** | **12 Oct 2026** |
-| Ultrasonic emergency stop | *Next* |
-| Battery monitor (ADS1115) | *Next* |
+| EKF + indoor waypoint navigation | 12 Oct 2026 |
+| **Ultrasonic emergency stop** | **14 Oct 2026** |
+| **AI scan at each waypoint** | *Next* |
+| **Field-test waypoint accuracy** | *Next* |
 | **Report due** | 25 Nov 2026 |
 | **Slides due** | 30 Nov 2026 |
 | **Viva** | 2 Dec 2026 |
 
 ---
 
-*Yvette Lee EnQi (25034155) — Graduation Project, 2026*
+*Yvette Lee EnQi (25034155) — Integrated Design Project, 2026*

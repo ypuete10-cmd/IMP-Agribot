@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 12 October 2026 · Viva: 2 December 2026
+Last updated: 22 October 2026 · Viva: 2 December 2026
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 12 October 2026 · Viva: 2 December 2026
 ```
 robot_control/
 ├── robot_control/
-│   ├── motor_driver.py          # PWM differential drive, subscribes /cmd_vel
+│   ├── motor_driver.py          # PWM differential drive + emergency cut-off
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000)
 │   ├── capture.py               # Single photo capture
 │   ├── ai_inference.py          # TFLite inference, publishes /plant_health
@@ -18,9 +18,10 @@ robot_control/
 │   ├── imu_node.py              # BNO055 I2C IMU, publishes /imu/data
 │   ├── gps_node.py              # NEO-8M UART GPS, publishes /fix
 │   ├── env_node.py              # AHT30 I2C temp/humidity, publishes /env/*
-│   └── waypoint_follower.py     # Indoor autonomous nav, subscribes /odometry/filtered
+│   ├── waypoint_follower.py     # Indoor autonomous nav, pause-resume on emergency
+│   └── ultrasonic_node.py       # 2× HC-SR04 front sensors, debounced emergency stop
 ├── launch/
-│   └── bringup.launch.py        # 8-process one-command bringup
+│   └── bringup.launch.py        # 9-process one-command bringup
 ├── config/
 │   └── ekf.yaml                 # robot_localization EKF config
 ├── dashboard/                   # Mission Control (Flask, port 8080)
@@ -49,7 +50,8 @@ robot_control/
 5. **4-wheel drive teleop** — dual L298N via breadboard signal sharing;
    forward and turn-in-place verified with keyboard teleop and web drive pad
 6. **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
-   starts motor, encoder, IMU, env, GPS, EKF, rosbridge, and camera stream
+   starts 9 processes: motor, encoder, IMU, env, GPS, EKF, waypoint follower,
+   ultrasonic, rosbridge, and camera stream
 7. **Web drive control** — embedded in Mission Control + standalone at
    `/control` (WASD/arrow keys, speed slider, auto-stop, no hardcoded IP)
 8. **Encoder odometry** — 4× LM393 encoders wired (GPIO 5/6/13/19), publishes
@@ -67,102 +69,158 @@ robot_control/
     from EKF pose, Run to autonomously navigate with proportional control
     (turn-in-place threshold 0.5 rad, 15 cm tolerance). Manual drive resumes
     after Stop via autonomous flag.
+14. **Ultrasonic emergency stop v2** — 2× HC-SR04 front sensors (Trig GPIO17/23,
+    Echo GPIO22/27 with voltage dividers). Motor-level cut-off: motor_driver
+    zeroes both motors on `/emergency_stop`. Waypoint follower pause-resume:
+    freezes on obstacle, auto-resumes when clear. Noise filtering: staggered
+    pings (+20ms), median-of-3 sampling, 5-reading debounce, 2cm glitch filter.
+    Threshold: 10cm (indoor), configurable via `THRESHOLD_CM`.
+
+## What Is Left (Priority Order)
+
+| # | Task | Due |
+|---|------|-----|
+| 1 | AI scan at each waypoint (auto capture → classify → log) | Nov |
+| 2 | Field-test waypoint accuracy on actual floor | Nov |
+| 3 | ADS1115 battery monitor (when LiPo returns) | Nov |
+| 4 | Report writing + documentation | Nov–Dec |
+| 5 | Viva presentation slides | 30 Nov |
+| 6 | Final demo / viva | **2 Dec 2026** |
 
 ## Hardware Status
 
-| Item | Status |
-|------|--------|
-| Pi 5 (Ubuntu 24.04, ROS2 Jazzy) | ✅ Running |
-| USB webcam (/dev/video0) | ✅ Working (Pi Cam v2 retired) |
-| Dual L298N motor drivers | ✅ Wired, 4-wheel drive working |
-| Breadboard (signal + power rails) | ✅ 6 GPIO → both boards; 5V/GND/12V distributed |
-| 4× LM393 wheel encoders | ✅ Wired (GPIO 5/6/13/19), 3.3V, odometry publishing |
-| BNO055 IMU (I2C 0x29) | ✅ Live, /imu/data at 20 Hz, onboard fusion |
-| NEO-8M GPS (UART /dev/ttyAMA0) | ✅ Publishing /fix; fix needs sky |
-| AHT30 temp/humidity (I2C) | ✅ Live, /env/temperature + /env/humidity |
-| ros-jazzy-rosbridge-suite | ✅ Installed |
-| robot_localization | ✅ Live, EKF fusing encoders + IMU |
-| 3S LiPo 5500mAh | Purchased; running on 12V wall adapter until charger/safe bag arrive |
-| 2× HC-SR04 ultrasonic | From lab, not wired |
-| ADS1115 battery monitor | Not wired (when LiPo returns) |
-| DHT11 cross-check sensor | Not wired (optional) |
-| BMP280 pressure (I2C) | Purchased, not wired (shares bus) |
-| MPU9250 (original order) | Shop substituted with BNO055 — kept deliberately |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Raspberry Pi 5 + Ubuntu 24.04 | Working | ROS2 Jazzy, 8 GB RAM |
+| USB Webcam (1080p) | Working | V4L2/UVC, replaces Pi Camera v2 |
+| Dual L298N + 4× TT motors | Working | Breadboard signal sharing |
+| 4× LM393 encoders | Working | GPIO 5/6/13/19, ~90 ticks/m |
+| BNO055 IMU | Working | I2C @0x29, NDOF mode, onboard fusion |
+| NEO-8M GPS | Working | UART /dev/ttyAMA0, 1 Hz, needs sky view |
+| AHT30 temp/humidity | Working | Shares I2C bus with BNO055 |
+| 2× HC-SR04 ultrasonic | Working | Trig 17/23, Echo 22/27, 10cm threshold |
+| 3S LiPo 11.1V 5500mAh | Borrowed | ~3.5 h runtime; return by 4 Dec |
+| HW-688 buck converter | Working | 12V→5V logic power |
+| ADS1115 battery monitor | Pending | When LiPo returns |
+| Front bumper / protective guard | Not built | Optional for outdoor demo |
 
-## Critical Path (remaining ~7 weeks)
+## GPIO Pinout (BCM, Final)
 
-1. ~~Wire L298N #2 → full 4-wheel drive teleop~~ ✅ DONE 03/10
-2. ~~One-command bringup + web drive dashboard~~ ✅ DONE 06/10
-3. ~~Encoder odometry (4-wheel, signed counts, TF)~~ ✅ DONE 07/10
-4. ~~IMU node (BNO055 I2C fusion)~~ ✅ DONE 08/10
-5. ~~GPS node (NEO-8M UART /fix publisher)~~ ✅ DONE 08/10
-6. ~~Mission Control dashboard (unified sensor + camera + drive)~~ ✅ DONE 09/10
-7. ~~robot_localization EKF (fuse /odom + /imu/data)~~ ✅ DONE 12/10
-8. ~~Indoor waypoint navigation (proportional follower)~~ ✅ DONE 12/10
-9. Front ×2 HC-SR04 ultrasonic emergency stop (&lt;30 cm)
-10. ADS1115 battery monitor (when LiPo returns)
-11. Optional: DHT11 cross-check sensor
-12. Field-test waypoint gains on actual floor
-13. Report writing + demo prep
+| GPIO | Function | Pin # |
+|------|----------|-------|
+| 12 | ENA (PWM, left motors) | 32 |
+| 16 | IN1 (left forward) | 36 |
+| 20 | IN2 (left reverse) | 38 |
+| 18 | ENB (PWM, right motors) | 12 |
+| 25 | IN3 (right forward) | 22 |
+| 26 | IN4 (right reverse) | 37 |
+| 5 | Encoder FL (D0) | 29 |
+| 6 | Encoder FR (D0) | 31 |
+| 13 | Encoder RL (D0) | 33 |
+| 19 | Encoder RR (D0) | 35 |
+| 2 | SDA (I2C) | 3 |
+| 3 | SCL (I2C) | 5 |
+| 14 | UART TX | 8 |
+| 15 | UART RX | 10 |
+| 17 | HC-SR04 Trig #1 | 11 |
+| 23 | HC-SR04 Trig #2 | 16 |
+| 22 | HC-SR04 Echo #1 (with divider) | 15 |
+| 27 | HC-SR04 Echo #2 (with divider) | 13 |
 
-## GPIO / I2C / UART Map
+**Spare GPIO:** 4, 7, 8, 9, 10, 11, 21, 24
 
-| GPIO | Pin | Function | Status |
-|------|-----|----------|--------|
-| 12 | 32 | ENA both boards (PWM, left speed) | ✅ Wired |
-| 16 | 36 | IN1 both boards (left dir) | ✅ Wired |
-| 20 | 38 | IN2 both boards (left dir) | ✅ Wired |
-| 18 | 12 | ENB both boards (PWM, right speed) | ✅ Wired |
-| 25 | 22 | IN3 both boards (right dir) | ✅ Wired |
-| 26 | 37 | IN4 both boards (right dir) | ✅ Wired |
-| 5 | 29 | Encoder FL (D0, 3.3V) | ✅ Wired |
-| 6 | 31 | Encoder RL (D0, 3.3V) | ✅ Wired |
-| 13 | 33 | Encoder FR (D0, 3.3V) | ✅ Wired |
-| 19 | 35 | Encoder RR (D0, 3.3V) | ✅ Wired |
-| 2/3 | 3/5 | I2C (BNO055 @0x29, AHT30 share bus) | ✅ All live |
-| 14/15 | 8/10 | UART /dev/ttyAMA0 (GPS) | ✅ GPS live |
+## Topic Map
 
-**GPIO budget:** 16 used, 10 spare (ultrasonic trigger/echo will use 4, ADS1115 I2C uses existing bus)
+| Topic | Type | Publisher | Subscriber(s) |
+|-------|------|-----------|---------------|
+| /cmd_vel | Twist | dashboard, waypoint_follower, teleop | motor_driver |
+| /wheel_ticks | Int32MultiArray | encoder_node | — |
+| /odom | Odometry | encoder_node | ekf_filter_node |
+| /imu/data | Imu | imu_node | ekf_filter_node |
+| /odometry/filtered | Odometry | ekf_filter_node | waypoint_follower |
+| /fix | NavSatFix | gps_node | dashboard, navsat_transform_node |
+| /env/temperature | Temperature | env_node | dashboard |
+| /env/humidity | RelativeHumidity | env_node | dashboard |
+| /plant_health | String (JSON) | ai_inference | dashboard |
+| /ultrasonic/front | Float32 | ultrasonic_node | — |
+| /emergency_stop | Bool | ultrasonic_node | motor_driver, waypoint_follower |
+| /waypoint/save | Empty | dashboard | waypoint_follower |
+| /waypoint/clear | Empty | dashboard | waypoint_follower |
+| /waypoint/run | Empty | dashboard | waypoint_follower |
+| /waypoint/stop | Empty | dashboard | waypoint_follower |
 
-## Known Issues / Fixes Applied
+## Known Issues
 
-- Pi Camera v2 incompatible with Ubuntu 24.04 → USB webcam (V4L2)
-- GPIO busy error → kill old process before restart (motor, encoder)
-- Motors need ≥25% PWM → threshold coded in node
-- ENA/ENB miswired → rewired to align with IN pins
-- Front wheels spun backwards → swapped motor lead polarity
-- Front/back turning inversion → breadboard second output wire per GPIO row
-- Count-only encoders cannot sense direction → fused from /cmd_vel
-- Zero-cmd direction flip → deadband patch (|cmd| &gt; 0.01)
-- tflite-runtime has no Python 3.12 wheels → ai-edge-litert; NumPy pinned to 1.26.4
-- Camera device number changes after reboot → re-verify /dev/videoN
-- WSL cannot SSH to Pi on hotspot → use Windows PowerShell
-- BNO055 tilted ~18° → remount flat before outdoor nav; mag calibrate before demo
-- GPS no fix indoors → normal; test outdoors with sky view
-- Dashboard `NameError: requests` → verify with `grep` after editing
-- Dashboard `TypeError: function not iterable` → `stream_with_context(gen())`
-- Dashboard iframe 404 → check access log for stray quotes in src attribute
-- Browser cache stale → incognito + Ctrl+Shift+R
-- Port 8080 blocked → `pkill -f app.py`, verify with `curl -I`
-- Waypoint JS outside `&lt;/script&gt;` → moved inside
-- Dashboard/waypointFollower cmd_vel conflict → `autonomous` flag in dashboard JS
+1. **Jittery manual drive** — robot stutters during web drive. Suspected
+   vibration-induced false ultrasonic readings (median+debounce applied,
+   needs retest), or `min_pwm=0.25` lurch on resume. Next: retest with
+   echo running during drive; if persists, add acceleration ramp.
+2. **Encoder drift** — ±10% per-leg without GPS loop closure. Documented
+   limitation; EKF helps but does not eliminate accumulated drift.
+3. **IMU tilt** — BNO055 mounted ~18° off horizontal. Must remount flat
+   before outdoor nav2 demo.
+4. **GPS no fix indoors** — expected; status -1 with 0.0/0.0. Needs sky
+   view for position lock. Navsat transform node ready for outdoor use.
+5. **LCD moiré** — leaf images on phone screens misclassify occasionally.
+   Use printed photos or real leaves for demo.
 
-## Notes for Report
+## Critical Path
 
-- Chassis is open-source adapted (Thingiverse), not designed from scratch —
-  **must cite original source** in references
-- Custom work: Pi mounting tray, camera mast, two-deck layout, wiring integration,
-  breadboard signal-sharing architecture, encoder odometry with cmd_vel direction
-  fusion + deadband patch, BNO055 NDOF integration, Mission Control dashboard
-  (unified sensor strip + camera proxy + embedded drive pad + keyboard control),
-  EKF config + encoder covariance tuning, indoor waypoint follower with
-  proportional control and autonomous flag
-- "Future improvements" section: deferred sensors (rain, soil, air quality),
-  solar panel, IP54 enclosure, BMP280/DHT11 integration
-- PlantVillage dataset © original authors (CC BY-SA) — attribute in report
-- Known demo caveat: phone-screen leaf images may misclassify (LCD moiré)
-- Encoder limitation: ±10% per-leg accuracy; EKF + GPS fusion will correct drift
-- BNO055 substitution: shop sent BNO055 instead of MPU9250; kept because onboard
-  fusion processor simplifies stack
-- EKF drift: ~0.8 m per metre pushed without GPS loop closure — document as
-  expected behaviour for dead-reckoning + IMU fusion indoors
+```
+[COMPLETED] Chassis → AI pipeline → Electronics → 4WD → Web drive
+[COMPLETED] Bringup launch → Encoders → Sensors → Dashboard
+[COMPLETED] EKF → Waypoint nav → Ultrasonic v1 → Ultrasonic v2
+[ACTIVE]    AI scan at waypoint → Field test → Battery monitor
+[UPCOMING]  Report → Slides → Viva (2 Dec 2026)
+```
+
+## Quick Commands
+
+```bash
+# Build workspace
+cd ~/ros2_ws && colcon build --symlink-install && source install/setup.bash
+
+# One-command bringup (9 processes)
+ros2 launch robot_control bringup.launch.py
+
+# Dashboard (second terminal)
+python3 ~/ros2_ws/src/robot_control/dashboard/app.py
+
+# Monitor emergency stop
+ros2 topic echo /emergency_stop
+
+# Monitor ultrasonic distance
+ros2 topic echo /ultrasonic/front
+
+# Verify all nodes running
+ros2 node list
+```
+
+## File Locations
+
+| File | Path |
+|------|------|
+| Workspace | `~/ros2_ws/` |
+| Package source | `~/ros2_ws/src/robot_control/` |
+| Bringup launch | `~/ros2_ws/src/robot_control/launch/bringup.launch.py` |
+| EKF config | `~/ros2_ws/src/robot_control/config/ekf.yaml` |
+| Motor driver | `~/ros2_ws/src/robot_control/robot_control/motor_driver.py` |
+| Encoder node | `~/ros2_ws/src/robot_control/robot_control/encoder_node.py` |
+| IMU node | `~/ros2_ws/src/robot_control/robot_control/imu_node.py` |
+| GPS node | `~/ros2_ws/src/robot_control/robot_control/gps_node.py` |
+| Env node | `~/ros2_ws/src/robot_control/robot_control/env_node.py` |
+| Waypoint follower | `~/ros2_ws/src/robot_control/robot_control/waypoint_follower.py` |
+| Ultrasonic node | `~/ros2_ws/src/robot_control/robot_control/ultrasonic_node.py` |
+| Camera stream | `~/ros2_ws/src/robot_control/robot_control/camera_stream.py` |
+| Dashboard app | `~/ros2_ws/src/robot_control/dashboard/app.py` |
+| Dashboard HTML | `~/ros2_ws/src/robot_control/dashboard/templates/index.html` |
+| Drive page | `~/ros2_ws/src/robot_control/dashboard/drive/control.html` |
+| AI model | `~/ros2_ws/src/robot_control/models/plant_health.tflite` |
+| Waypoint JSON | `~/ros2_ws/src/robot_control/waypoints.json` |
+| Results log | `~/ros2_ws/src/robot_control/dashboard/data/results.json` |
+| Build log | `docs/BUILD_LOG.md` |
+| Command reference | `docs/COMMAND_REFERENCE.md` |
+
+---
+
+*Yvette Lee EnQi (25034155) — Graduation Project, 2026*
