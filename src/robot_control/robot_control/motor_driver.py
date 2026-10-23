@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool
 from gpiozero import PWMOutputDevice, DigitalOutputDevice
 
 class MotorDriver(Node):
@@ -25,7 +26,9 @@ class MotorDriver(Node):
             self.cmd_vel_callback,
             10
         )
-        
+
+        self.emergency = False
+        self.create_subscription(Bool, '/emergency_stop', self.emergency_cb, 10)
         self.timer = self.create_timer(1.0, self.watchdog_callback)
         self.last_cmd_time = self.get_clock().now()
         
@@ -33,6 +36,9 @@ class MotorDriver(Node):
 
     def cmd_vel_callback(self, msg):
         self.last_cmd_time = self.get_clock().now()
+
+        self.emergency = False
+        self.create_subscription(Bool, '/emergency_stop', self.emergency_cb, 10)
         
         linear = msg.linear.x
         angular = msg.angular.z
@@ -45,7 +51,10 @@ class MotorDriver(Node):
         
         self.set_motor(self.left_pwm, self.left_in1, self.left_in2, left_speed)
         self.set_motor(self.right_pwm, self.right_in1, self.right_in2, right_speed)
-
+    def emergency_cb(self, msg):
+        if msg.data and not self.emergency:
+            self.get_logger().error('EMERGENCY CUT — motors halted (ultrasonic)')
+        self.emergency = msg.data
     def set_motor(self, pwm, in1, in2, speed):
         min_pwm = 0.25
         

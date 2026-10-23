@@ -34,6 +34,7 @@ class WaypointFollower(Node):
         self.x = self.y = self.yaw = 0.0
         self.waypoints = self.load()
         self.running = False
+        self.emergency = False
         self.current_idx = 0
         self.near_count = 0
 
@@ -83,6 +84,9 @@ class WaypointFollower(Node):
         self.get_logger().info('Stopped')
 
     def loop(self):
+        if self.emergency:
+            self.cmd_pub.publish(Twist())
+            return
         if not self.running or not self.waypoints:
             return
 
@@ -122,10 +126,9 @@ class WaypointFollower(Node):
 
         self.cmd_pub.publish(cmd)
     def emergency_cb(self, msg):
-        if msg.data and self.running:
-            self.running = False
-            self.cmd_pub.publish(Twist())
-            self.get_logger().error('EMERGENCY STOP — obstacle detected!')
+        if msg.data and not self.emergency:
+            self.get_logger().error('EMERGENCY STOP — pausing, will resume when clear')
+        self.emergency = msg.data
 
 
 def main(args=None):

@@ -13,7 +13,7 @@ import time
 
 TRIG_PINS = [17, 23]   # front-left, front-right
 ECHO_PINS = [22, 27]
-THRESHOLD_CM = 30.0
+THRESHOLD_CM = 10.0
 SPEED_SOUND = 343.0
 
 
@@ -23,6 +23,7 @@ class UltrasonicNode(Node):
         self.stop_pub = self.create_publisher(Bool, '/emergency_stop', 10)
         self.dist_pub = self.create_publisher(Float32, '/ultrasonic/front', 10)
         self.timer = self.create_timer(0.1, self.loop)
+        self.close_count = 0
 
         self.chip = lgpio.gpiochip_open(4)
         for t in TRIG_PINS:
@@ -57,16 +58,25 @@ class UltrasonicNode(Node):
     def loop(self):
         min_dist = float('inf')
         for t, e in zip(TRIG_PINS, ECHO_PINS):
-            d = self.measure(t, e)
+            samples = sorted(self.measure(t, e) for _ in range(3))  # median of 3
+            d = samples[1]
+            if d < 0.02:   # below sensor minimum = glitch, ignore
+                continue
             if d < min_dist:
                 min_dist = d
+            time.sleep(0.02)
 
         dmsg = Float32()
         dmsg.data = min_dist
         self.dist_pub.publish(dmsg)
 
+        if min_dist < (THRESHOLD_CM / 100.0):
+            self.close_count += 1
+        else:
+            self.close_count = 0
+
         stop = Bool()
-        stop.data = min_dist < (THRESHOLD_CM / 100.0)
+        stop.data = self.close_count >= 5  # 3 consecutive readings (~0.3s)
         self.stop_pub.publish(stop)
 
         if stop.data:
