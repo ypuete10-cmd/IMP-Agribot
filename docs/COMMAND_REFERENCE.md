@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 22 October 2026
+Yvette Lee EnQi (25034155) · Last updated: 28 October 2026
 
 ---
 
@@ -25,6 +25,7 @@ Yvette Lee EnQi (25034155) · Last updated: 22 October 2026
 17. [Status Snapshot](#17-status-snapshot)
 18. [Emergency Stop v2 (22 Oct)](#18-emergency-stop-v2-22-oct)
 19. [Known Issues & Next Steps](#19-known-issues--next-steps)
+20. [AI-Waypoint Integration (28 Oct)](#20-ai-waypoint-integration-28-oct)
 
 ---
 
@@ -126,21 +127,22 @@ source ~/ros2_ws/install/setup.bash
 ## 7. AI Inference
 
 ```bash
-# Single capture + classify
+# Single capture + classify (legacy manual mode)
 ros2 run robot_control capture
 
-# Continuous inference node
+# Event-driven AI node (waypoint-triggered)
 ros2 run robot_control ai_inference
 
 # Verify topic
 ros2 topic echo /plant_health
+ros2 topic echo /waypoint/scan_done
 ```
 
 ---
 
 ## 8. One-Command Bringup
 
-**Starts 9 processes:**
+**Starts 10 processes:**
 ```bash
 cd ~/ros2_ws
 colcon build --symlink-install
@@ -156,10 +158,11 @@ Processes launched:
 - `gps_node` — NEO-8M UART GPS, 1 Hz
 - `ekf_filter_node` — robot_localization EKF
 - `navsat_transform_node` — GPS pipeline (standby for outdoor)
-- `waypoint_follower` — indoor autonomous nav, pause-resume
+- `waypoint_follower` — indoor autonomous nav, pause-resume + scan handshake
 - `ultrasonic_node` — 2× HC-SR04 emergency stop
+- `ai_inference` — event-driven TFLite scanner
 - `rosbridge_server` — WebSocket bridge
-- `camera_stream` — Flask MJPEG (port 5000)
+- `camera_stream` — Flask MJPEG (port 5000) + frame sharing to `/tmp/latest_frame.jpg`
 
 **Dashboard (second terminal):**
 ```bash
@@ -237,6 +240,8 @@ ros2 topic echo /env/humidity
 - Results table
 
 **All sensor data via roslib.js over rosbridge WebSocket (port 9090).**
+**Throttle rates:** `/imu/data` at 10 Hz, `/odom` at 4 Hz to prevent
+rosbridge "Write queue full" warnings.
 
 ---
 
@@ -248,6 +253,10 @@ ros2 topic echo /env/humidity
 - Auto-stop on release / blur
 - roslib.js → WebSocket → rosbridge → /cmd_vel at 10 Hz
 - `autonomous` flag prevents dashboard zeros during waypoint Run
+
+**⚠️ Multi-tab warning:** Multiple dashboard tabs both publish /cmd_vel
+zeros at 10 Hz, which can cancel follower drive commands. Use **only one
+dashboard tab** during autonomous Run.
 
 ---
 
@@ -272,12 +281,19 @@ ros2 topic pub /waypoint/run std_msgs/Empty {}
 ros2 topic pub /waypoint/stop std_msgs/Empty {}
 ```
 
+**Scan handshake topics:**
+```bash
+ros2 topic echo /waypoint/reached       # Float32MultiArray [idx, x, y]
+ros2 topic echo /waypoint/scan_done     # Empty
+```
+
 **Parameters:**
-- Turn-in-place threshold: `|yaw_err| &gt; 0.5 rad`
+- Turn-in-place threshold: `|yaw_err| > 0.5 rad`
 - Forward speed: `0.15 * dist` capped at `0.15 m/s`
 - Angular cap: `±0.3 rad/s`
 - Position tolerance: `15 cm`
 - Orientation tolerance: `0.15 rad`
+- Scan freeze: waits for `/waypoint/scan_done` before resuming
 
 ---
 
@@ -286,7 +302,7 @@ ros2 topic pub /waypoint/stop std_msgs/Empty {}
 **Topics:**
 ```bash
 ros2 topic echo /ultrasonic/front    # Float32, minimum distance (m)
-ros2 topic echo /emergency_stop      # Bool, True when &lt; threshold
+ros2 topic echo /emergency_stop      # Bool, True when < threshold
 ```
 
 **Hardware:**
@@ -309,10 +325,13 @@ ros2 topic echo /emergency_stop      # Bool, True when &lt; threshold
 | Camera iframe 404 | Check for stray quote in `src` attribute |
 | Browser cache stale | Incognito + Ctrl+Shift+R |
 | Port 8080 blocked | `pkill -f app.py` then `curl -I localhost:8080` |
-| GPIO busy | `pkill -f &lt;node_name&gt;` before relaunch |
+| GPIO busy | `pkill -f <node_name>` before relaunch |
 | `gpiochip_open(0)` fails on Pi 5 | Use `gpiochip_open(4)` |
 | Waypoints "not saving" | Check `self.emergency` defined in `__init__` |
 | Dashboard/waypoint cmd_vel conflict | `autonomous` flag in dashboard JS |
+| **Run starts but robot doesn't move** | Check single dashboard tab; verify QoS with `ros2 topic info /cmd_vel --verbose` |
+| QoS mismatch (silent drop) | Explicit `QoSProfile(RELIABLE, VOLATILE, KEEP_LAST/10)` on both pub and sub |
+| rosbridge "Write queue full" | Add `throttle_rate` to heavy topic subscriptions |
 
 ---
 
@@ -331,6 +350,7 @@ ros2 topic echo /emergency_stop      # Bool, True when &lt; threshold
 | Env node | `robot_control/env_node.py` |
 | Waypoint follower | `robot_control/waypoint_follower.py` |
 | Ultrasonic node | `robot_control/ultrasonic_node.py` |
+| AI inference | `robot_control/ai_inference.py` |
 | Camera stream | `robot_control/camera_stream.py` |
 | Dashboard app | `dashboard/app.py` |
 | Dashboard HTML | `dashboard/templates/index.html` |
@@ -338,10 +358,11 @@ ros2 topic echo /emergency_stop      # Bool, True when &lt; threshold
 | AI model | `models/plant_health.tflite` |
 | Waypoint JSON | `waypoints.json` |
 | Results log | `dashboard/data/results.json` |
+| Shared frame | `/tmp/latest_frame.jpg` |
 
 ---
 
-## 17. Status Snapshot (22 Oct 2026)
+## 17. Status Snapshot (28 Oct 2026)
 
 | Component | Status |
 |-----------|--------|
@@ -355,12 +376,15 @@ ros2 topic echo /emergency_stop      # Bool, True when &lt; threshold
 | EKF (robot_localization) | Working |
 | Indoor waypoint navigation | Working |
 | Ultrasonic emergency stop v2 | Working (motor-level cut-off, pause-resume) |
+| **AI-waypoint integration** | **Working (event-driven, scan handshake)** |
 | Mission Control dashboard | Working |
 | Web drive control | Working |
 | AI inference (TFLite) | Working |
-| One-command bringup (9 processes) | Working |
+| One-command bringup (10 processes) | Working |
+| QoS fix (/cmd_vel compatibility) | Working |
+| Full end-to-end mission | **Pending verification** |
+| Camera lag reduction | Pending |
 | ADS1115 battery monitor | Pending |
-| AI scan at waypoint | Pending |
 | Field-test waypoint accuracy | Pending |
 | Report + slides | Pending |
 
@@ -418,30 +442,131 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 
 ### Known Issues
 
-1. **Jittery manual drive** — robot stutters during web drive.
+1. **Full mission NOT yet verified** — Run starts but robot may not move.
+   Need to confirm `/cmd_vel` flows during Run (single dashboard tab required).
+2. **Jittery manual drive** — robot stutters during web drive.
    - Suspected: vibration-induced false ultrasonic readings (median+debounce
      applied, needs retest) OR `min_pwm=0.25` lurch on resume
    - Next: retest with echo running during drive; if persists, add
      acceleration ramp in motor driver
-
-2. **Encoder drift** — ±10% per-leg without GPS loop closure
-
-3. **IMU tilt** — BNO055 mounted ~18° off horizontal; remount before outdoor demo
-
-4. **GPS no fix indoors** — expected; navsat transform ready for outdoor
-
-5. **LCD moiré** — phone-screen leaves misclassify; use printed/real leaves
+3. **Encoder drift** — ±10% per-leg without GPS loop closure
+4. **IMU tilt** — BNO055 mounted ~18° off horizontal; remount before outdoor demo
+5. **GPS no fix indoors** — expected; navsat transform ready for outdoor
+6. **LCD moiré** — phone-screen leaves misclassify; use printed/real leaves
+7. **Camera lag** — 1080p @ 30 fps may overload Pi; next: 640×480 @ 15 fps
 
 ### Next Steps
 
 | Priority | Task |
 |----------|------|
-| 1 | AI scan at each waypoint (auto capture → classify → log) |
+| 1 | Full mission verification (arrive → scan → resume → next) |
 | 2 | Field-test waypoint accuracy on actual floor |
-| 3 | ADS1115 battery monitor (when LiPo returns) |
-| 4 | Report writing + documentation |
-| 5 | Slides (due 30 Nov) |
-| 6 | Viva (2 Dec 2026) |
+| 3 | Camera lag reduction (640×480 @ 15 fps) |
+| 4 | ADS1115 battery monitor (when LiPo returns) |
+| 5 | Report writing + documentation |
+| 6 | Slides (due 30 Nov) |
+| 7 | Viva (2 Dec 2026) |
+
+---
+
+## 20. AI-Waypoint Integration (28 Oct)
+
+### Architecture
+
+```
+waypoint_follower        ai_inference
+       │                       ▲
+       │  /waypoint/reached   │
+       └──────────────────────┘
+              [idx, x, y]
+              (Float32MultiArray)
+
+       ┌──────────────────────┐
+       │  /waypoint/scan_done │
+       └──────────────────────┘
+              (Empty)
+```
+
+### Flow
+
+1. **Waypoint follower** reaches waypoint (within 15 cm tolerance)
+2. Publishes `/waypoint/reached` with `[idx, x, y]`
+3. Sets `self.scanning = True` — motion frozen
+4. **AI inference** receives trigger, grabs `/tmp/latest_frame.jpg`
+5. Classifies with TFLite → publishes `/plant_health` + `/waypoint/scan_done`
+6. Appends result to `results.json` (atomic: write tmp → `os.replace`)
+7. **Waypoint follower** receives `/waypoint/scan_done`
+8. Sets `self.scanning = False` — auto-resumes to next waypoint
+
+### Frame Sharing
+
+`camera_stream.py` writes every captured frame to `/tmp/latest_frame.jpg`:
+- Avoids camera device contention (only `camera_stream` opens `/dev/video0`)
+- AI node reads the file synchronously on trigger
+- Single `camera.read()` per loop (no duplicate reads)
+
+### Results JSON (Atomic Write)
+
+```python
+# ai_inference.py
+with open(tmp_path, 'w') as f:
+    json.dump(results, f)
+os.replace(tmp_path, RESULTS_PATH)
+```
+
+Prevents Flask from reading partial JSON during concurrent write.
+
+### QoS Fix (CRITICAL)
+
+**Root cause:** After reboot, `waypoint_follower` defaulted to
+`TRANSIENT_LOCAL` durability on `/cmd_vel` publisher. `motor_driver`
+used `VOLATILE`. ROS2 silently dropped all messages — no errors,
+no crashes, robot idle.
+
+**Fix:** Explicit matching QoS on both sides:
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+qos = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10
+)
+# Publisher (waypoint_follower)
+cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', qos)
+# Subscriber (motor_driver)
+cmd_vel_sub = self.create_subscription(Twist, '/cmd_vel', callback, qos)
+```
+
+**Verify:**
+```bash
+ros2 topic info /cmd_vel --verbose
+# Expect: Publisher count: 2, Subscription count: 2
+# Both with RELIABLE reliability + VOLATILE durability
+```
+
+### Debug Checklist (Run → No Motion)
+
+```bash
+# 1. Confirm follower publishes commands
+ros2 topic echo /cmd_vel --once
+
+# 2. Check publish rate
+timeout 3 ros2 topic hz /cmd_vel
+
+# 3. Verify QoS compatibility
+ros2 topic info /cmd_vel --verbose
+
+# 4. Check for multi-tab dashboard zeros
+# Close all browser tabs except one Mission Control tab
+
+# 5. Check motor driver is alive
+ros2 node list | grep motor
+
+# 6. Check emergency stop is not latched
+ros2 topic echo /emergency_stop --once
+```
 
 ---
 
