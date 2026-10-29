@@ -1,14 +1,21 @@
+#!/usr/bin/env python3
+"""
+Agribot bringup — launches all robot nodes.
+10 processes: motor, encoder, imu, env, gps, waypoint_follower,
+ekf, navsat_transform, ultrasonic, ai_inference
+plus rosbridge (WebSocket) and camera_stream (Flask MJPEG).
+"""
+import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
-import os
-from ament_index_python.packages import get_package_share_directory
+
+EKF_PARAMS = os.path.expanduser('~/ros2_ws/src/robot_control/config/ekf.yaml')
+
 
 def generate_launch_description():
-    pkg_dir = get_package_share_directory('robot_control')
-    ekf_params = os.path.join(pkg_dir, 'config', 'ekf.yaml')
-
     return LaunchDescription([
+        # --- Hardware interface ---
         Node(package='robot_control', executable='motor_driver',
              name='motor_driver', output='screen'),
         Node(package='robot_control', executable='encoder_node',
@@ -19,11 +26,13 @@ def generate_launch_description():
              name='env_node', output='screen'),
         Node(package='robot_control', executable='gps_node',
              name='gps_node', output='screen'),
+
+        # --- Navigation ---
         Node(package='robot_control', executable='waypoint_follower',
              name='waypoint_follower', output='screen'),
         Node(package='robot_localization', executable='ekf_node',
              name='ekf_filter_node', output='screen',
-             parameters=[ekf_params]),
+             parameters=[EKF_PARAMS]),
         Node(package='robot_localization', executable='navsat_transform_node',
              name='navsat_transform_node', output='screen',
              parameters=[{
@@ -42,8 +51,16 @@ def generate_launch_description():
                  ('/gps/fix', '/fix'),
                  ('/odometry/filtered', '/odometry/filtered'),
              ]),
-     Node(package='robot_control', executable='ultrasonic_node',
+
+        # --- Safety ---
+        Node(package='robot_control', executable='ultrasonic_node',
              name='ultrasonic_node', output='screen'),
+
+        # --- AI ---
+        Node(package='robot_control', executable='ai_inference',
+             name='ai_inference', output='screen'),
+
+        # --- Dashboard bridge + camera ---
         ExecuteProcess(cmd=['ros2', 'launch', 'rosbridge_server',
                             'rosbridge_websocket_launch.xml'],
                        output='screen'),

@@ -13,6 +13,7 @@ def generate_frames():
         success, frame = camera.read()
         if not success:
             break
+        cv2.imwrite('/tmp/latest_frame.jpg', frame)  # shared frame for AI
         ret, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'

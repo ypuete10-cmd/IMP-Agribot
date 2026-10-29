@@ -203,11 +203,11 @@ new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix' }).su
     fx.style.color = '#b71c1c';
   }
 });
-new ROSLIB.Topic({ ros, name: '/odom', messageType: 'nav_msgs/Odometry' }).subscribe(m => {
+new ROSLIB.Topic({ ros, name: '/odom', messageType: 'nav_msgs/Odometry', throttle_rate: 250, queue_length: 1 }).subscribe(m => {
   const d = Math.hypot(m.pose.pose.position.x, m.pose.pose.position.y);
   document.getElementById('s-dist').textContent = d.toFixed(1) + ' m';
 });
-new ROSLIB.Topic({ ros, name: '/imu/data', messageType: 'sensor_msgs/Imu' }).subscribe(m => {
+new ROSLIB.Topic({ ros, name: '/imu/data', messageType: 'sensor_msgs/Imu', throttle_rate: 100, queue_length: 1 }).subscribe(m => {
   const q = m.orientation;
   const yaw = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
   let deg = yaw * 180 / Math.PI; if (deg < 0) deg += 360;
@@ -258,7 +258,7 @@ async function refresh() {
     }).join('');
     markers.forEach(m => map.removeLayer(m));
     markers = [];
-    data.results.forEach(x => {
+    data.results.filter(x => x.lat !== 0.0 || x.lon !== 0.0).forEach(x => {
       const dis = x.classification !== 'healthy';
       const m = L.circleMarker([x.lat, x.lon], {
         radius: 8, color: dis ? '#b71c1c' : '#2e7d32',

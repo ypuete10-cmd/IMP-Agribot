@@ -3,11 +3,12 @@
 Waypoint follower — indoor odometry-based navigation.
 Subscribes to /odometry/filtered, publishes /cmd_vel to reach saved waypoints.
 """
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Empty, Bool
+from std_msgs.msg import Empty, Bool,Float32MultiArray
 import math, json, os
 
 WP_FILE = os.path.expanduser('~/ros2_ws/src/robot_control/dashboard/data/waypoints.json')
@@ -23,13 +24,19 @@ class WaypointFollower(Node):
     def __init__(self):
         super().__init__('waypoint_follower')
         self.sub = self.create_subscription(Odometry, '/odometry/filtered', self.odom_cb, 10)
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        cmd_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST, depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.VOLATILE)
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', cmd_qos)
         self.create_subscription(Empty, '/waypoint/save', self.save_cb, 10)
         self.create_subscription(Empty, '/waypoint/clear', self.clear_cb, 10)
         self.create_subscription(Bool, '/waypoint/run', self.run_cb, 10)
         self.create_subscription(Bool, '/waypoint/stop', self.stop_cb, 10)
         self.create_subscription(Bool, '/emergency_stop', self.emergency_cb, 10)
-
+        self.reached_pub = self.create_publisher(Float32MultiArray, '/waypoint/reached', 10)
+        self.create_subscription(Empty, '/waypoint/scan_done', self.scan_done_cb, 10)
+       
         self.timer = self.create_timer(0.1, self.loop)  # 10 Hz
         self.x = self.y = self.yaw = 0.0
         self.waypoints = self.load()
@@ -37,6 +44,7 @@ class WaypointFollower(Node):
         self.emergency = False
         self.current_idx = 0
         self.near_count = 0
+        self.scanning = False
 
         self.get_logger().info('Waypoint follower ready. %d waypoints loaded.' % len(self.waypoints))
 
@@ -84,7 +92,7 @@ class WaypointFollower(Node):
         self.get_logger().info('Stopped')
 
     def loop(self):
-        if self.emergency:
+        if self.emergency or self.scanning:
             self.cmd_pub.publish(Twist())
             return
         if not self.running or not self.waypoints:
@@ -116,15 +124,24 @@ class WaypointFollower(Node):
             else:
                 self.near_count += 1
                 if self.near_count > 10:
-                    self.current_idx += 1
                     self.near_count = 0
-                    self.get_logger().info('Reached waypoint %d/%d' %
-                                            (self.current_idx, len(self.waypoints)))
+                    self.current_idx += 1
                     if self.current_idx >= len(self.waypoints):
                         self.running = False
                         self.get_logger().info('All waypoints reached!')
-
-        self.cmd_pub.publish(cmd)
+                    else:
+                        msg = Float32MultiArray()
+                        msg.data = [float(self.current_idx),
+                                    float(self.x), float(self.y)]
+                        self.reached_pub.publish(msg)
+                        self.scanning = True
+                        self.get_logger().info(
+                            'Reached waypoint %d/%d — scanning' %
+                            (self.current_idx, len(self.waypoints)))
+                        self.cmd_pub.publish(cmd)
+    def scan_done_cb(self, _):
+        self.scanning = False
+        self.get_logger().info('Scan done — resuming')
     def emergency_cb(self, msg):
         if msg.data and not self.emergency:
             self.get_logger().error('EMERGENCY STOP — pausing, will resume when clear')
