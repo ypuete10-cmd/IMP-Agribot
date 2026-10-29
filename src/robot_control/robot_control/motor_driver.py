@@ -11,6 +11,7 @@ class MotorDriver(Node):
         
         self.max_speed = 0.8
         self.wheel_separation = 0.18
+        self.watchdog_triggered = False
         
         self.left_pwm = PWMOutputDevice(12)
         self.left_in1 = DigitalOutputDevice(16)
@@ -20,15 +21,11 @@ class MotorDriver(Node):
         self.right_in1 = DigitalOutputDevice(25)
         self.right_in2 = DigitalOutputDevice(26)
         
-        cmd_qos = QoSProfile(
-            history=HistoryPolicy.KEEP_LAST, depth=10,
-            reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.VOLATILE)
         self.subscription = self.create_subscription(
             Twist,
             '/cmd_vel',
             self.cmd_vel_callback,
-            cmd_qos
+            10
         )
 
         self.timer = self.create_timer(1.0, self.watchdog_callback)
@@ -38,7 +35,7 @@ class MotorDriver(Node):
 
     def cmd_vel_callback(self, msg):
         self.last_cmd_time = self.get_clock().now()
-
+        self.watchdog_triggered = False
         linear = msg.linear.x
         angular = msg.angular.z
         
@@ -73,9 +70,12 @@ class MotorDriver(Node):
         now = self.get_clock().now()
         elapsed = (now - self.last_cmd_time).nanoseconds / 1e9
         if elapsed > 1.0:
-            self.set_motor(self.left_pwm, self.left_in1, self.left_in2, 0.0)
-            self.set_motor(self.right_pwm, self.right_in1, self.right_in2, 0.0)
-            self.get_logger().warn('Watchdog: motors stopped')
+            # Only stop once, not continuously
+            if not self.watchdog_triggered:
+                self.watchdog_triggered = True
+                self.set_motor(self.left_pwm, self.left_in1, self.left_in2, 0.0)
+                self.set_motor(self.right_pwm, self.right_in1, self.right_in2, 0.0)
+                self.get_logger().warn('Watchdog: motors stopped (timeout)')
 
     def destroy_node(self):
         self.set_motor(self.left_pwm, self.left_in1, self.left_in2, 0.0)

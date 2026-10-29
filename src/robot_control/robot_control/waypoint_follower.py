@@ -3,12 +3,11 @@
 Waypoint follower — indoor odometry-based navigation.
 Subscribes to /odometry/filtered, publishes /cmd_vel to reach saved waypoints.
 """
-from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Empty, Bool,Float32MultiArray
+from std_msgs.msg import Empty, Bool, Float32MultiArray
 import math, json, os
 
 WP_FILE = os.path.expanduser('~/ros2_ws/src/robot_control/dashboard/data/waypoints.json')
@@ -24,11 +23,7 @@ class WaypointFollower(Node):
     def __init__(self):
         super().__init__('waypoint_follower')
         self.sub = self.create_subscription(Odometry, '/odometry/filtered', self.odom_cb, 10)
-        cmd_qos = QoSProfile(
-            history=HistoryPolicy.KEEP_LAST, depth=10,
-            reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.VOLATILE)
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', cmd_qos)
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.create_subscription(Empty, '/waypoint/save', self.save_cb, 10)
         self.create_subscription(Empty, '/waypoint/clear', self.clear_cb, 10)
         self.create_subscription(Bool, '/waypoint/run', self.run_cb, 10)
@@ -36,15 +31,15 @@ class WaypointFollower(Node):
         self.create_subscription(Bool, '/emergency_stop', self.emergency_cb, 10)
         self.reached_pub = self.create_publisher(Float32MultiArray, '/waypoint/reached', 10)
         self.create_subscription(Empty, '/waypoint/scan_done', self.scan_done_cb, 10)
-       
+
         self.timer = self.create_timer(0.1, self.loop)  # 10 Hz
         self.x = self.y = self.yaw = 0.0
         self.waypoints = self.load()
         self.running = False
         self.emergency = False
+        self.scanning = False
         self.current_idx = 0
         self.near_count = 0
-        self.scanning = False
 
         self.get_logger().info('Waypoint follower ready. %d waypoints loaded.' % len(self.waypoints))
 
@@ -108,13 +103,16 @@ class WaypointFollower(Node):
         while yaw_err < -math.pi: yaw_err += 2 * math.pi
 
         cmd = Twist()
+        self.get_logger().info('WP %d/%d: pos=(%.2f,%.2f) yaw=%.2f | dist=%.2f yaw_err=%.2f' % (
+            self.current_idx, len(self.waypoints), self.x, self.y, self.yaw, dist, yaw_err))
+
         if dist > 0.15:  # 15 cm tolerance
-            if abs(yaw_err) > 0.5:
-                cmd.angular.z = max(-0.3, min(0.3, 0.8 * yaw_err))
+            if abs(yaw_err) > 0.8:
+                cmd.angular.z = max(-0.4, min(0.4, 0.8 * yaw_err))
                 cmd.linear.x = 0.0
             else:
-                cmd.linear.x = max(0.0, min(0.15, 0.3 * dist))
-                cmd.angular.z = max(-0.3, min(0.3, 0.8 * yaw_err))
+                cmd.linear.x = max(0.0, min(0.3, 0.5 * dist))
+                cmd.angular.z = max(-0.3, min(0.3, 0.5 * yaw_err))
         else:
             yaw_err = wp['yaw'] - self.yaw
             while yaw_err > math.pi: yaw_err -= 2 * math.pi
@@ -131,17 +129,19 @@ class WaypointFollower(Node):
                         self.get_logger().info('All waypoints reached!')
                     else:
                         msg = Float32MultiArray()
-                        msg.data = [float(self.current_idx),
-                                    float(self.x), float(self.y)]
+                        msg.data = [float(self.current_idx), float(self.x), float(self.y)]
                         self.reached_pub.publish(msg)
                         self.scanning = True
-                        self.get_logger().info(
-                            'Reached waypoint %d/%d — scanning' %
-                            (self.current_idx, len(self.waypoints)))
-                        self.cmd_pub.publish(cmd)
+                        self.get_logger().info('Reached waypoint %d/%d — scanning' %
+                                                (self.current_idx, len(self.waypoints)))
+
+        self.get_logger().info('CMD: lin=%.3f ang=%.3f' % (cmd.linear.x, cmd.angular.z))
+        self.cmd_pub.publish(cmd)
+
     def scan_done_cb(self, _):
         self.scanning = False
         self.get_logger().info('Scan done — resuming')
+
     def emergency_cb(self, msg):
         if msg.data and not self.emergency:
             self.get_logger().error('EMERGENCY STOP — pausing, will resume when clear')
