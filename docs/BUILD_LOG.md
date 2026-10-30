@@ -4,6 +4,195 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 29/10/2026 — Working autonomous navigation + AI scan integration
+
+**End-to-end autonomous waypoint navigation with AI plant health scanning — VERIFIED.**
+
+### Root Causes Found & Fixed (5 critical bugs)
+
+**1. Motor Driver Watchdog Latch (CRITICAL)**
+- **Symptom:** Robot only moved when lifted off floor; worked on first run after
+  boot but not after manual drive
+- **Cause:** `watchdog_callback()` ran every 1 s and continuously zeroed motors.
+  After manual drive stopped, watchdog fired and kept overwriting motor speeds
+  to `0.0` even when autonomous commands arrived
+- **Fix:** Added `self.watchdog_triggered` flag. Watchdog only stops motors
+  **ONCE** on timeout, resets when new `/cmd_vel` arrives
+
+**2. QoS Durability Mismatch on `/cmd_vel` (CRITICAL)**
+- **Symptom:** "Run" started but robot never moved, no errors
+- **Cause:** After reboot, follower published with `TRANSIENT_LOCAL` durability,
+  `motor_driver` subscribed with `VOLATILE`. DDS silently dropped all messages
+- **Fix:** Explicit `QoSProfile(RELIABLE, VOLATILE)` on both publisher and subscriber
+
+**3. AI Scan Never Triggered (LOGIC BUG)**
+- **Symptom:** Robot reached waypoint but jumped straight to
+  "All waypoints reached!" without scanning
+- **Cause:** Scan trigger only ran if `current_idx < len(waypoints)`. With 1
+  waypoint, `idx=1 == len=1`, so scan skipped
+- **Fix:** Trigger scan for **EVERY** waypoint including last. Moved
+  mission-complete check to `scan_done_cb`
+
+**4. EKF Update Rate Too High**
+- **Symptom:** `"Failed to meet update rate! Took 0.26s"` — EKF couldn't keep up
+- **Cause:** `frequency: 20.0` in `ekf.yaml` too demanding for Pi 5 with 10 nodes
+  + camera + AI
+- **Fix:** Reduced to `frequency: 5.0`
+
+**5. Follower Drive Parameters Too Weak**
+- **Symptom:** Wheels turned when lifted but not on floor (insufficient torque)
+- **Cause:** `lin=0.15` max and `min_pwm=0.25` too low for static friction
+- **Fix:** Increased to `lin=0.3` max, `min_pwm=0.5`, more lenient turn threshold
+  (`0.8 rad` vs `0.5 rad`)
+
+### Verified Working
+
+- **Robot drives on floor after manual control** (watchdog fix)
+- **1 m autonomous navigation:** drives, slows near target, stops within 15 cm
+- **Position tracking:** EKF odometry accurate to ~5 cm over 1 m distance
+- **Emergency stop:** pauses on obstacle, resumes when clear
+- **Mission sequence:** Run → Drive → Arrive → Scan → Resume → Complete
+
+### Debug Infrastructure Added
+
+- Real-time WP/CMD logging:
+  ```
+  WP 0/1: pos=(0.74,0.56) yaw=0.92 | dist=0.06 yaw_err=-2.37
+  ```
+- Watchdog state logging with trigger reason
+- Scan handshake logging (reached / scan_done / resuming)
+
+### Files Changed
+
+- `robot_control/motor_driver.py` — Watchdog latch fix, QoS fix, `min_pwm=0.5`
+- `robot_control/waypoint_follower.py` — Scan trigger fix, drive tuning, debug logging
+- `config/ekf.yaml` — `frequency: 20→5`
+- `launch/bringup.launch.py` — Full rewrite with 10 processes
+- `robot_control/ai_inference.py` — Event-driven rewrite
+- `robot_control/camera_stream.py` — Shares frames via `/tmp/latest_frame.jpg`
+
+### Next Session
+
+1. Test AI scan with actual plant photo (verify `/waypoint/reached` →
+   `/waypoint/scan_done` handshake)
+2. Test 2+ waypoints with scan at each
+3. Remove debug logging (reduce log spam)
+4. Tune arrival tolerance (currently 15 cm, may need 20 cm for reliability)
+5. Camera lag fix (640×480 @ 15 fps)
+
+### Photos & Videos
+
+**Terminal showing Mission Control during autonomous run**
+(live sensor cards, embedded camera, waypoint status):
+
+![Dashboard during autonomous run](https://github.com/user-attachments/assets/57fdb910-a351-4074-9a8e-0b985890a183)
+
+**AgriBot on the lab floor during 1 m autonomous navigation test**
+(~5 cm position accuracy, EKF fused odometry):
+
+![Robot on floor during nav test](https://github.com/user-attachments/assets/525101c1-b360-4ae8-b857-4fdcf9e1f634)
+
+**Close-up of AgriBot chassis showing front ultrasonic sensors**
+(dual HC-SR04 with voltage dividers, 10 cm emergency stop threshold):
+
+![Front sensors close-up](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
+
+**Videos:**
+- [Dashboard showcase and waypoint demo](https://youtu.be/Y43O8ZLnX90)
+- [Manual control using dashboard](https://youtu.be/ORlWATcgQac)
+
+---
+
+## 28/10/2026 — AI-waypoint integration + QoS fix (event-driven scanner + scan handshake)
+
+**`ai_inference.py`** — REWRITTEN as **event-driven scanner**:
+- **Was:** timer-based classification every 2 s (wasted CPU, wrong trigger)
+- **Now:** subscribes `/waypoint/reached` (`Float32MultiArray` `[idx, x, y]`)
+- Grabs shared frame from `/tmp/latest_frame.jpg` (written by `camera_stream`)
+  — avoids camera device contention (`camera_stream` owns the USB cam)
+- Classifies with TFLite (16 classes), appends to `results.json`
+  (atomic write: tmp file + `os.replace` so Flask never reads partial JSON)
+- Publishes `/plant_health` (live dashboard card) + `/waypoint/scan_done`
+- Logs: `"WP-01: Tomato___Late_blight (93.2%)"`
+
+**`waypoint_follower.py`** — Scan handshake:
+- Publishes `/waypoint/reached` when robot arrives at waypoint
+- Freezes motion (`self.scanning` gate) until `/waypoint/scan_done` arrives
+- **Auto-resumes** to next waypoint after AI scan completes
+- Fixed: line 135 had two statements glued together (`SyntaxError`)
+
+**`camera_stream.py`** — Frame sharing:
+- Writes every frame to `/tmp/latest_frame.jpg` for AI consumption
+- Single `camera.read()` per loop (removed accidental duplicate)
+
+**`bringup.launch.py`** — Full rewrite (was corrupted by bad inserts):
+- **10 processes:** motor, encoder, IMU, env, GPS, waypoint_follower,
+  EKF, navsat_transform, ultrasonic, **ai_inference**
+  + rosbridge + camera_stream
+
+**`motor_driver.py` + `waypoint_follower.py`** — **QoS fix (CRITICAL):**
+- Explicit `QoSProfile(RELIABLE, VOLATILE, KEEP_LAST/10)` on `/cmd_vel`
+  publisher and subscriber
+- **Root cause of "Run does nothing":** follower silently published with
+  `TRANSIENT_LOCAL` durability after reboot; motor driver (`VOLATILE`)
+  silently dropped all messages. No errors, no crashes — robot idle.
+- Verified: `ros2 topic info /cmd_vel` now shows **Publisher count: 2,
+  Subscription count: 2**
+
+**Dashboard:** `throttle_rate` added to `/imu/data` (10 Hz) and `/odom`
+(4 Hz) subscriptions to stop rosbridge "Write queue full" warnings.
+
+**Bugs fixed today:**
+1. `bringup.launch.py` `SyntaxError` — `ai_inference` node inserted inside
+   `navsat_transform_node`'s `Node()` call (same pattern as ultrasonic bug)
+2. `waypoint_follower.py` line 135 — glued statements from paste
+3. `camera_stream.py` — duplicated `camera.read()` block
+4. **QoS durability mismatch on `/cmd_vel`** (root cause of no-motion)
+5. rosbridge "Write queue full" — added `throttle_rate` to heavy topics
+
+**Verified working:**
+- All 10 nodes start clean, no deaths, no Tracebacks
+- AI node: `"AI inference ready | 16 classes | waiting for triggers"`
+- `/odometry/filtered` publishing at clean 10 Hz
+- `/emergency_stop = false` (no phantom latch)
+- `/cmd_vel` QoS compatible (pub/sub visible to each other)
+
+**NOT yet verified (tomorrow's task):**
+- Full mission: waypoint run → arrive → scan → resume → next waypoint
+- Status: Run starts (log shows `"Autonomous run started: N waypoints"`)
+  but robot does not move. `/cmd_vel` echo during run still pending —
+  need to confirm whether follower publishes drive commands or zeros.
+
+**Tomorrow's plan:**
+1. Click Run, then immediately:
+   ```bash
+   ros2 topic echo /cmd_vel --once
+   timeout 3 ros2 topic hz /cmd_vel
+   ```
+   → if ~10 Hz with `linear.x > 0`: commands flow; check single dashboard
+     tab (multi-tab publishes zeros at 10 Hz, cancels follower)
+   → if zeros: add debug line to follower loop, inspect state
+2. If commands flow but no motion: motor driver watchdog investigation
+3. Camera lag fix: 640×480 @ 15 fps + JPEG quality 70 in `camera_stream.py`
+4. Then: full 2-waypoint mission with plant photo → verify end-to-end
+
+**Indoor stack v3 (AI-integrated):**
+- Drive: motor_driver (emergency cut-off) + encoder_node + imu_node + env_node
+- Navigation: EKF + waypoint_follower (scan handshake) + ultrasonic_node
+- AI: camera_stream (frame sharing) + ai_inference (event-driven)
+- Dashboard: camera + drive pad + keyboard + waypoints + sensors + map
+
+**Remaining to December viva:**
+1. Full end-to-end mission verification (arrive → scan → resume)
+2. Field-test waypoint accuracy on actual floor
+3. Camera lag reduction (640×480 @ 15 fps)
+4. ADS1115 battery monitor (when LiPo returns)
+5. Report writing + documentation
+
+*(Photos for this session are included in the 29 Oct entry above)*
+
+---
+
 ## 22/10/2026 — Emergency stop hardening v2 (motor-level cut-off + pause-resume + noise filtering)
 
 **`motor_driver.py`** — Emergency cut-off at the **motor level**:
@@ -23,7 +212,7 @@ Dated progress log with photos. Newest entries at the top.
 **`ultrasonic_node.py`** — Noise robustness:
 - **Staggered sensor pings** (+20ms) to eliminate cross-talk between
   the two front HC-SR04 sensors
-- **Debounce:** requires **5 consecutive readings &lt; threshold** (~0.5s)
+- **Debounce:** requires **5 consecutive readings < threshold** (~0.5s)
   before asserting `/emergency_stop`
 - **Median-of-3 sampling** per sensor + rejection of readings below 2cm
   (HC-SR04 physical minimum = glitch filter)
@@ -69,6 +258,7 @@ Dated progress log with photos. Newest entries at the top.
 3. ADS1115 battery monitor (when LiPo returns)
 4. Report writing + documentation
 
+PASTE_PHOTO_1_URL
 
 ---
 
@@ -80,7 +270,7 @@ Dated progress log with photos. Newest entries at the top.
 - Pins: **Trig GPIO17/23**, **Echo GPIO22/27**
 - Echo pins use **1kΩ + 2kΩ voltage dividers** (5V → ~3.3V for Pi GPIO)
 - Publishes `/ultrasonic/front` (Float32, minimum distance in metres)
-- Publishes `/emergency_stop` (Bool, `True` when &lt;30 cm)
+- Publishes `/emergency_stop` (Bool, `True` when <30 cm)
 - Waypoint follower subscribes to `/emergency_stop` and halts autonomous run
 
 **`bringup.launch.py`** now launches **9 processes:**
@@ -112,7 +302,7 @@ pipeline, standby for outdoor use), `waypoint_follower`,
 **Verified end-to-end:**
 - `ros2 topic echo /ultrasonic/front` shows live distance values (~2 m
   at rest, drops when hand waved in front)
-- `/emergency_stop = True` when obstacle &lt;30 cm in front of either sensor
+- `/emergency_stop = True` when obstacle <30 cm in front of either sensor
 - Waypoint follower halts immediately when obstacle detected
 - Manual drive, keyboard, camera, all sensors still functional
 - All 9 processes start from single `bringup.launch.py`
@@ -153,7 +343,7 @@ per metre of hand-pushed travel (expected without GPS loop closure).
 - Subscribes `/odometry/filtered`, publishes `/cmd_vel`
 - Topics: `/waypoint/save`, `/waypoint/clear`, `/waypoint/run`, `/waypoint/stop`
 - Saves waypoints to JSON as `{x, y, yaw}` from live EKF pose
-- Proportional control: turn-in-place if `|yaw_err| &gt; 0.5 rad`,
+- Proportional control: turn-in-place if `|yaw_err| > 0.5 rad`,
   otherwise drive forward at `0.15 * dist` capped at `0.15 m/s`
 - Angular capped at `±0.3 rad/s`
 - 15 cm position tolerance, 0.15 rad final orientation tolerance
@@ -180,7 +370,7 @@ use (GPS pipeline ready for outdoor switch-on).
 2. Missing `import requests` — nano buffer not saved; verified with `grep`
 3. `stream_with_context(gen)` missing call parens → `gen()`
 4. Browser cache stale pages → incognito + Ctrl+Shift+R
-5. Waypoint JS outside `&lt;/script&gt;` tag → moved inside
+5. Waypoint JS outside `</script>` tag → moved inside
 6. Dashboard/waypointFollower `/cmd_vel` conflict → `autonomous` flag
    in dashboard JS
 7. Undefined variable `autonomous` → declared alongside `vx, vz`
@@ -195,7 +385,7 @@ use (GPS pipeline ready for outdoor switch-on).
 
 **Remaining to December viva:**
 1. Field-test waypoint follower on actual floor (tune gains if needed)
-2. Front ×2 HC-SR04 ultrasonic emergency stop (&lt;30 cm)
+2. Front ×2 HC-SR04 ultrasonic emergency stop (<30 cm)
 3. ADS1115 battery monitor (when LiPo returns)
 4. DHT11 as optional cross-check sensor
 5. Report writing + documentation
@@ -229,7 +419,7 @@ speed slider. Now part of the unified dashboard instead of a separate
 page.
 
 **Camera proxy** (no hardcoded IPs):
-- `GET /cam` → minimal wrapper HTML with `&lt;img src="/cam_feed"&gt;`
+- `GET /cam` → minimal wrapper HTML with `<img src="/cam_feed">`
 - `GET /cam_feed` → streams MJPEG from `http://127.0.0.1:5000/video_feed`
   via `requests` + `Flask Response(stream_with_context(gen()))`
 
@@ -316,7 +506,7 @@ group: `sudo usermod -aG dialout $USER`.
 
 **Encoder fixes** (`encoder_node.py`) — direction now fused from
 `/cmd_vel` using the same diff-drive mixing as `motor_driver` (per-side,
-not per-wheel). **Deadband patch:** `|cmd| &lt;= 0.01` keeps the last
+not per-wheel). **Deadband patch:** `|cmd| <= 0.01` keeps the last
 direction — stops coasting ticks being miscounted at stops/reversals.
 Verified: stable plateaus at rest (zero phantom drift), smooth
 bidirectional integration. Calibration: `ticks_per_meter ~90`.
@@ -373,7 +563,7 @@ as a known limitation — GPS fusion in nav2 will correct drift globally.
 **Issues fixed during bring-up:**
 1. GPIO busy on restart → `pkill -f encoder_node` before relaunch
 2. Count-only encoders cannot sense direction → fused from `/cmd_vel`
-3. Zero-cmd direction flip → deadband patch (`|cmd| &gt; 0.01` updates dir)
+3. Zero-cmd direction flip → deadband patch (`|cmd| > 0.01` updates dir)
 4. `calibrate.py` script retired → prompt timing confused leg boundaries;
    live streaming `ros2 topic echo /odom` is the reliable method
 

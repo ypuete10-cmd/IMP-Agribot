@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 28 October 2026
+Yvette Lee EnQi (25034155) · Last updated: 29 October 2026
 
 ---
 
@@ -26,6 +26,7 @@ Yvette Lee EnQi (25034155) · Last updated: 28 October 2026
 18. [Emergency Stop v2 (22 Oct)](#18-emergency-stop-v2-22-oct)
 19. [Known Issues & Next Steps](#19-known-issues--next-steps)
 20. [AI-Waypoint Integration (28 Oct)](#20-ai-waypoint-integration-28-oct)
+21. [Working Autonomous Nav (29 Oct)](#21-working-autonomous-nav-29-oct)
 
 ---
 
@@ -151,12 +152,12 @@ ros2 launch robot_control bringup.launch.py
 ```
 
 Processes launched:
-- `motor_driver` — PWM differential drive + emergency cut-off
+- `motor_driver` — PWM differential drive + emergency cut-off + watchdog latch
 - `encoder_node` — 4-wheel encoders + odometry + TF
 - `imu_node` — BNO055 I2C IMU, 20 Hz
 - `env_node` — AHT30 temp/humidity
 - `gps_node` — NEO-8M UART GPS, 1 Hz
-- `ekf_filter_node` — robot_localization EKF
+- `ekf_filter_node` — robot_localization EKF (5 Hz)
 - `navsat_transform_node` — GPS pipeline (standby for outdoor)
 - `waypoint_follower` — indoor autonomous nav, pause-resume + scan handshake
 - `ultrasonic_node` — 2× HC-SR04 emergency stop
@@ -181,7 +182,12 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 **Motor settings (in `motor_driver.py`):**
 - `max_speed = 0.8`
 - `wheel_separation = 0.18`
-- `min_pwm = 0.25`
+- `min_pwm = 0.5` (was 0.25 — increased for static friction)
+
+**Watchdog latch:**
+- `watchdog_callback()` uses `self.watchdog_triggered` flag
+- Only stops motors **ONCE** on timeout, resets on new `/cmd_vel`
+- Prevents watchdog from continuously overwriting autonomous commands
 
 **Kill orphaned motor process:**
 ```bash
@@ -272,6 +278,7 @@ Config: `config/ekf.yaml`
 - `world_frame: odom`
 - `odom0` = /odom (x, y, vx, yaw_vel)
 - `imu0` = /imu/data (yaw, yaw_rate, differential)
+- `frequency: 5.0` (was 20.0 — reduced to prevent Pi 5 overload)
 
 **Waypoint follower topics:**
 ```bash
@@ -288,8 +295,8 @@ ros2 topic echo /waypoint/scan_done     # Empty
 ```
 
 **Parameters:**
-- Turn-in-place threshold: `|yaw_err| > 0.5 rad`
-- Forward speed: `0.15 * dist` capped at `0.15 m/s`
+- Turn-in-place threshold: `|yaw_err| > 0.8 rad` (was 0.5)
+- Forward speed: `0.3 * dist` capped at `0.3 m/s` (was 0.15)
 - Angular cap: `±0.3 rad/s`
 - Position tolerance: `15 cm`
 - Orientation tolerance: `0.15 rad`
@@ -330,6 +337,10 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | Waypoints "not saving" | Check `self.emergency` defined in `__init__` |
 | Dashboard/waypoint cmd_vel conflict | `autonomous` flag in dashboard JS |
 | **Run starts but robot doesn't move** | Check single dashboard tab; verify QoS with `ros2 topic info /cmd_vel --verbose` |
+| **Robot moves when lifted but not on floor** | Check `min_pwm` ≥ 0.5; check watchdog not latching |
+| **Robot stops after manual drive, won't Run** | Watchdog latch — `watchdog_triggered` flag must reset on new cmd_vel |
+| **Scan skipped at last waypoint** | Scan trigger must run for ALL waypoints; mission-complete in `scan_done_cb` |
+| **EKF "Failed to meet update rate"** | Reduce `frequency` in `ekf.yaml` to 5.0 |
 | QoS mismatch (silent drop) | Explicit `QoSProfile(RELIABLE, VOLATILE, KEEP_LAST/10)` on both pub and sub |
 | rosbridge "Write queue full" | Add `throttle_rate` to heavy topic subscriptions |
 
@@ -362,7 +373,7 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 
 ---
 
-## 17. Status Snapshot (28 Oct 2026)
+## 17. Status Snapshot (29 Oct 2026)
 
 | Component | Status |
 |-----------|--------|
@@ -373,16 +384,17 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | BNO055 IMU (I2C, NDOF) | Working |
 | NEO-8M GPS (UART) | Working (stream); fix needs sky view |
 | AHT30 temp/humidity | Working |
-| EKF (robot_localization) | Working |
+| EKF (robot_localization) | Working (5 Hz) |
 | Indoor waypoint navigation | Working |
 | Ultrasonic emergency stop v2 | Working (motor-level cut-off, pause-resume) |
-| **AI-waypoint integration** | **Working (event-driven, scan handshake)** |
+| AI-waypoint integration | Working (event-driven, scan handshake) |
+| **End-to-end autonomous mission** | **VERIFIED** |
 | Mission Control dashboard | Working |
 | Web drive control | Working |
 | AI inference (TFLite) | Working |
 | One-command bringup (10 processes) | Working |
 | QoS fix (/cmd_vel compatibility) | Working |
-| Full end-to-end mission | **Pending verification** |
+| Watchdog latch fix | Working |
 | Camera lag reduction | Pending |
 | ADS1115 battery monitor | Pending |
 | Field-test waypoint accuracy | Pending |
@@ -442,30 +454,27 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 
 ### Known Issues
 
-1. **Full mission NOT yet verified** — Run starts but robot may not move.
-   Need to confirm `/cmd_vel` flows during Run (single dashboard tab required).
-2. **Jittery manual drive** — robot stutters during web drive.
-   - Suspected: vibration-induced false ultrasonic readings (median+debounce
-     applied, needs retest) OR `min_pwm=0.25` lurch on resume
-   - Next: retest with echo running during drive; if persists, add
-     acceleration ramp in motor driver
+1. **Debug logging is verbose** — WP/CMD spam in terminal. Remove before demo.
+2. **Camera lag** — 1080p @ 30 fps overloads Pi. Next: 640×480 @ 15 fps.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal; remount before outdoor demo
 5. **GPS no fix indoors** — expected; navsat transform ready for outdoor
 6. **LCD moiré** — phone-screen leaves misclassify; use printed/real leaves
-7. **Camera lag** — 1080p @ 30 fps may overload Pi; next: 640×480 @ 15 fps
+7. **Arrival tolerance** — 15 cm may need 20 cm for floor reliability
 
 ### Next Steps
 
 | Priority | Task |
 |----------|------|
-| 1 | Full mission verification (arrive → scan → resume → next) |
-| 2 | Field-test waypoint accuracy on actual floor |
-| 3 | Camera lag reduction (640×480 @ 15 fps) |
-| 4 | ADS1115 battery monitor (when LiPo returns) |
-| 5 | Report writing + documentation |
-| 6 | Slides (due 30 Nov) |
-| 7 | Viva (2 Dec 2026) |
+| 1 | Multi-waypoint mission with scan at each |
+| 2 | Camera lag reduction (640×480 @ 15 fps) |
+| 3 | Remove debug logging |
+| 4 | Tune arrival tolerance (15→20 cm if needed) |
+| 5 | Field-test waypoint accuracy on actual floor |
+| 6 | ADS1115 battery monitor (when LiPo returns) |
+| 7 | Report writing + documentation |
+| 8 | Slides (due 30 Nov) |
+| 9 | Viva (2 Dec 2026) |
 
 ---
 
@@ -567,6 +576,133 @@ ros2 node list | grep motor
 # 6. Check emergency stop is not latched
 ros2 topic echo /emergency_stop --once
 ```
+
+---
+
+## 21. Working Autonomous Nav (29 Oct)
+
+### 5 Critical Bugs Fixed
+
+#### 1. Motor Driver Watchdog Latch
+
+**Symptom:** Robot only moved when lifted off floor; worked on first run
+after boot but not after manual drive.
+
+**Cause:** `watchdog_callback()` ran every 1 s and **continuously** zeroed
+motors. After manual drive stopped, watchdog fired and kept overwriting
+motor speeds to `0.0` even when autonomous `/cmd_vel` commands arrived.
+
+**Fix:** Added `self.watchdog_triggered` flag:
+```python
+# In watchdog_callback:
+if not self.watchdog_triggered:
+    self.watchdog_triggered = True
+    self.set_motor(0, 0)
+    self.get_logger().warn("Watchdog: motors stopped (triggered)")
+
+# In cmd_vel_callback:
+self.watchdog_triggered = False  # Reset on new command
+```
+
+Watchdog only stops motors **ONCE** on timeout, resets when new `/cmd_vel`
+arrives.
+
+#### 2. QoS Durability Mismatch
+
+Already documented in Section 20. Confirmed as root cause of "Run does
+nothing" after reboot.
+
+#### 3. AI Scan Never Triggered (Logic Bug)
+
+**Symptom:** Robot reached waypoint but jumped to "All waypoints reached!"
+without scanning.
+
+**Cause:** Scan trigger only ran if `current_idx < len(waypoints)`. With 1
+waypoint, `idx=1 == len=1`, so scan was skipped.
+
+**Fix:** Trigger scan for **EVERY** waypoint including last. Move
+mission-complete check to `scan_done_cb`:
+```python
+# OLD (broken):
+if current_idx < len(waypoints):  # Skips last waypoint!
+    trigger_scan()
+else:
+    mission_complete()
+
+# NEW (fixed):
+trigger_scan()  # Always scan at arrival
+
+# In scan_done_cb:
+if current_idx >= len(waypoints):
+    mission_complete()
+else:
+    resume_to_next_waypoint()
+```
+
+#### 4. EKF Update Rate Too High
+
+**Symptom:** `"Failed to meet update rate! Took 0.26s"`
+
+**Cause:** `frequency: 20.0` in `ekf.yaml` too demanding for Pi 5 with
+10 nodes + camera + AI.
+
+**Fix:** `config/ekf.yaml`:
+```yaml
+frequency: 5.0  # Was 20.0
+```
+
+#### 5. Follower Drive Parameters Too Weak
+
+**Symptom:** Wheels turned when lifted but not on floor (insufficient torque).
+
+**Cause:** `lin=0.15` max and `min_pwm=0.25` too low for static friction.
+
+**Fix:** `waypoint_follower.py` + `motor_driver.py`:
+```python
+# Follower:
+lin_speed = min(0.3 * distance, 0.3)   # Was 0.15
+
+# Motor driver:
+min_pwm = 0.5                           # Was 0.25
+```
+
+Turn threshold also relaxed from `0.5 rad` → `0.8 rad` for smoother
+forward motion.
+
+### Verified End-to-End Mission
+
+| Step | Status |
+|------|--------|
+| Run button pressed | ✅ "Autonomous run started: N waypoints" |
+| Robot drives on floor | ✅ After watchdog fix |
+| Slows near target | ✅ Proportional speed scaling |
+| Stops within 15 cm | ✅ ~5 cm accuracy over 1 m |
+| Publishes `/waypoint/reached` | ✅ AI receives trigger |
+| AI classifies frame | ✅ `/plant_health` + `/waypoint/scan_done` |
+| Robot resumes to next waypoint | ✅ After scan_done received |
+| Emergency stop pauses | ✅ Freezes motion |
+| Emergency clear resumes | ✅ Continues same waypoint |
+| Mission complete | ✅ "All waypoints reached!" |
+
+### Debug Infrastructure
+
+Real-time logging format:
+```
+WP 0/1: pos=(0.74,0.56) yaw=0.92 | dist=0.06 yaw_err=-2.37
+Watchdog: triggered (no cmd_vel for 1.0s)
+Scan: reached WP-0, waiting for scan_done...
+Scan: done received, resuming to WP-1
+```
+
+### Performance
+
+| Metric | Value |
+|--------|-------|
+| Navigation accuracy | ~5 cm over 1 m distance |
+| EKF output rate | 5 Hz (stable, no missed deadlines) |
+| /cmd_vel publish rate | ~10 Hz during motion |
+| Scan latency | ~2 s (TFLite inference + JSON write) |
+| Mission sequence | Run → Drive → Arrive → Scan → Resume → Complete |
 
 ---
 

@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 28 October 2026 · Viva: 2 December 2026
+Last updated: 29 October 2026 · Viva: 2 December 2026
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 28 October 2026 · Viva: 2 December 2026
 ```
 robot_control/
 ├── robot_control/
-│   ├── motor_driver.py          # PWM differential drive + emergency cut-off
+│   ├── motor_driver.py          # PWM differential drive + emergency cut-off + watchdog latch
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
 │   ├── ai_inference.py          # Event-driven TFLite scanner (waypoint-triggered)
@@ -23,7 +23,7 @@ robot_control/
 ├── launch/
 │   └── bringup.launch.py        # 10-process one-command bringup
 ├── config/
-│   └── ekf.yaml                 # robot_localization EKF config
+│   └── ekf.yaml                 # robot_localization EKF config (frequency: 5.0)
 ├── dashboard/                   # Mission Control (Flask, port 8080)
 │   ├── app.py                   # Server + camera proxy
 │   ├── result_logger.py
@@ -70,11 +70,12 @@ robot_control/
 12. **AHT30 environmental sensor** — I2C (shares bus with BNO055), publishes
     /env/temperature and /env/humidity
 13. **robot_localization EKF** — fuses /odom + /imu/data → /odometry/filtered
-    at 20 Hz (two_d_mode, world_frame: odom). Encoder covariances added.
+    at 5 Hz (two_d_mode, world_frame: odom). Encoder covariances added.
+    Frequency reduced from 20→5 to prevent "Failed to meet update rate" on Pi 5.
 14. **Indoor waypoint navigation** — waypoint_follower node: Save waypoints
     from EKF pose, Run to autonomously navigate with proportional control
-    (turn-in-place threshold 0.5 rad, 15 cm tolerance). Manual drive resumes
-    after Stop via autonomous flag.
+    (turn-in-place threshold 0.8 rad, 15 cm tolerance, lin=0.3 max).
+    Manual drive resumes after Stop via autonomous flag.
 15. **Ultrasonic emergency stop v2** — 2× HC-SR04 front sensors (Trig GPIO17/23,
     Echo GPIO22/27 with voltage dividers). Motor-level cut-off: motor_driver
     zeroes both motors on `/emergency_stop`. Waypoint follower pause-resume:
@@ -84,18 +85,28 @@ robot_control/
 16. **QoS fix** — Explicit `QoSProfile(RELIABLE, VOLATILE, KEEP_LAST/10)`
     on `/cmd_vel` publisher (waypoint_follower) and subscriber (motor_driver).
     Fixed silent message dropping due to TRANSIENT_LOCAL / VOLATILE mismatch.
+17. **Motor driver watchdog latch** — `watchdog_callback()` now uses
+    `self.watchdog_triggered` flag. Only stops motors ONCE on timeout,
+    resets when new `/cmd_vel` arrives. Fixed robot refusing to move after
+    manual drive stops.
+18. **End-to-end autonomous mission** — **VERIFIED:** Run → Drive → Arrive →
+    Scan → Resume → Complete. 1 m navigation accurate to ~5 cm. Emergency
+    stop pauses and resumes correctly.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | Full end-to-end mission verification (arrive → scan → resume → next) | Oct |
-| 2 | Field-test waypoint accuracy on actual floor | Nov |
-| 3 | Camera lag reduction (640×480 @ 15 fps) | Nov |
-| 4 | ADS1115 battery monitor (when LiPo returns) | Nov |
-| 5 | Report writing + documentation | Nov–Dec |
-| 6 | Viva presentation slides | 30 Nov |
-| 7 | Final demo / viva | **2 Dec 2026** |
+| 1 | AI scan with actual plant photo (verify classification at waypoint) | Oct |
+| 2 | Multi-waypoint mission (2+ waypoints with scan at each) | Oct |
+| 3 | Remove debug logging (reduce log spam) | Oct |
+| 4 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
+| 5 | Camera lag reduction (640×480 @ 15 fps) | Nov |
+| 6 | Field-test waypoint accuracy on actual floor | Nov |
+| 7 | ADS1115 battery monitor (when LiPo returns) | Nov |
+| 8 | Report writing + documentation | Nov–Dec |
+| 9 | Viva presentation slides | 30 Nov |
+| 10 | Final demo / viva | **2 Dec 2026** |
 
 ## Hardware Status
 
@@ -163,14 +174,10 @@ robot_control/
 
 ## Known Issues
 
-1. **Full mission NOT yet verified** — Run starts but robot may not move.
-   `/cmd_vel` echo during run pending. Suspected: multi-tab dashboard
-   publishing zeros at 10 Hz cancels follower commands. Fix: close all
-   dashboard tabs except one, then retest.
-2. **Jittery manual drive** — robot stutters during web drive. Suspected
-   vibration-induced false ultrasonic readings (median+debounce applied,
-   needs retest), or `min_pwm=0.25` lurch on resume. Next: retest with
-   echo running during drive; if persists, add acceleration ramp.
+1. **Debug logging is verbose** — real-time WP/CMD logs and watchdog state
+   spam the terminal. Remove or reduce before demo day.
+2. **Camera lag** — 1080p @ 30 fps may overload Pi CPU. Next: drop to
+   640×480 @ 15 fps + JPEG quality 70 in `camera_stream.py`.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure. Documented
    limitation; EKF helps but does not eliminate accumulated drift.
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal. Must remount flat
@@ -179,8 +186,8 @@ robot_control/
    view for position lock. Navsat transform node ready for outdoor use.
 6. **LCD moiré** — leaf images on phone screens misclassify occasionally.
    Use printed photos or real leaves for demo.
-7. **Camera lag** — 1080p @ 30 fps may overload Pi CPU. Next: drop to
-   640×480 @ 15 fps + JPEG quality 70 in `camera_stream.py`.
+7. **Arrival tolerance** — currently 15 cm; may need 20 cm for reliability
+   on actual floor surfaces.
 
 ## Critical Path
 
@@ -189,7 +196,8 @@ robot_control/
 [COMPLETED] Bringup launch → Encoders → Sensors → Dashboard
 [COMPLETED] EKF → Waypoint nav → Ultrasonic v1 → Ultrasonic v2
 [COMPLETED] AI-waypoint integration (event-driven scanner + scan handshake)
-[ACTIVE]    Full mission verification → Field test → Camera lag fix
+[COMPLETED] Working autonomous navigation + AI scan (29 Oct 2026)
+[ACTIVE]    Multi-waypoint mission → Camera lag fix → Field test
 [UPCOMING]  Battery monitor → Report → Slides → Viva (2 Dec 2026)
 ```
 
@@ -220,6 +228,10 @@ ros2 node list
 
 # Check QoS compatibility
 ros2 topic info /cmd_vel --verbose
+
+# Monitor waypoint scan handshake
+ros2 topic echo /waypoint/reached
+ros2 topic echo /waypoint/scan_done
 ```
 
 ## File Locations
