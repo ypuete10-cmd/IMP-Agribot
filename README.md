@@ -8,8 +8,6 @@ navigation with emergency stop hardening, **AI scan at each waypoint**
 (event-driven scanner + scan handshake), and results displayed on a unified
 farmer-facing Mission Control dashboard.
 
-**MAJOR MILESTONE (29 Oct 2026): End-to-end autonomous navigation + AI scan
-integration VERIFIED — robot drives, arrives, scans, and resumes autonomously.**
 
 ![AgriBot system](https://github.com/user-attachments/assets/dc5bf120-d234-43b8-aae1-257221774d6b)
 
