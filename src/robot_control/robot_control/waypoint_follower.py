@@ -2,6 +2,7 @@
 """
 Waypoint follower — indoor odometry-based navigation.
 Subscribes to /odometry/filtered, publishes /cmd_vel to reach saved waypoints.
+Triggers AI scan at each waypoint via /waypoint/reached topic.
 """
 import rclpy
 from rclpy.node import Node
@@ -114,33 +115,27 @@ class WaypointFollower(Node):
                 cmd.linear.x = max(0.0, min(0.3, 0.5 * dist))
                 cmd.angular.z = max(-0.3, min(0.3, 0.5 * yaw_err))
         else:
-            yaw_err = wp['yaw'] - self.yaw
-            while yaw_err > math.pi: yaw_err -= 2 * math.pi
-            while yaw_err < -math.pi: yaw_err += 2 * math.pi
-            if abs(yaw_err) > 0.15:
-                cmd.angular.z = max(-0.3, min(0.3, 0.8 * yaw_err))
-            else:
-                self.near_count += 1
-                if self.near_count > 10:
-                    self.near_count = 0
-                    self.current_idx += 1
-                    if self.current_idx >= len(self.waypoints):
-                        self.running = False
-                        self.get_logger().info('All waypoints reached!')
-                    else:
-                        msg = Float32MultiArray()
-                        msg.data = [float(self.current_idx), float(self.x), float(self.y)]
-                        self.reached_pub.publish(msg)
-                        self.scanning = True
-                        self.get_logger().info('Reached waypoint %d/%d — scanning' %
-                                                (self.current_idx, len(self.waypoints)))
+            # Arrived at waypoint - trigger AI scan for EVERY waypoint (including last)
+            self.near_count = 0
+            self.current_idx += 1
+            msg = Float32MultiArray()
+            msg.data = [float(self.current_idx), float(self.x), float(self.y)]
+            self.reached_pub.publish(msg)
+            self.scanning = True
+            self.get_logger().info('Reached waypoint %d/%d — scanning' %
+                                    (self.current_idx, len(self.waypoints)))
 
         self.get_logger().info('CMD: lin=%.3f ang=%.3f' % (cmd.linear.x, cmd.angular.z))
         self.cmd_pub.publish(cmd)
 
     def scan_done_cb(self, _):
         self.scanning = False
-        self.get_logger().info('Scan done — resuming')
+        if self.current_idx >= len(self.waypoints):
+            self.running = False
+            self.get_logger().info('All waypoints reached!')
+        else:
+            self.get_logger().info('Scan done — resuming to waypoint %d/%d' %
+                                    (self.current_idx + 1, len(self.waypoints)))
 
     def emergency_cb(self, msg):
         if msg.data and not self.emergency:
