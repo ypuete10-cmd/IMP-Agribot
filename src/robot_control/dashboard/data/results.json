@@ -1,1 +1,17 @@
-{"mission_id": "INDOOR-RUN", "updated": "", "results": []}
+{
+  "mission_id": "INDOOR-RUN",
+  "updated": "2026-10-30T21:28:22",
+  "results": [
+    {
+      "id": 1,
+      "waypoint": "WP-01",
+      "timestamp": "2026-10-30T21:28:22",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.081,
+      "y": 0.131,
+      "classification": "unknown_no_plant",
+      "confidence": 0.493
+    }
+  ]
+}
