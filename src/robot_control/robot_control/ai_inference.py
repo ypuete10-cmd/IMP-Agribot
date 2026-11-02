@@ -54,6 +54,7 @@ class AiInference(Node):
         self.done_pub = self.create_publisher(Empty, '/waypoint/scan_done', 10)
         self.create_subscription(Float32MultiArray, '/waypoint/reached',
                                  self.reached_cb, 10)
+        self.create_subscription(Empty, '/ai/scan_trigger', self.manual_scan_cb, 10)
         self.get_logger().info(
             f'AI inference ready | {len(self.class_names)} classes | '
             'waiting for /waypoint/reached triggers')
@@ -77,6 +78,22 @@ class AiInference(Node):
         except Exception as e:
             self.get_logger().error(f'Scan failed: {e}')
         self.done_pub.publish(Empty())
+        self.busy = False
+
+    def manual_scan_cb(self, _):
+        if self.busy:
+            return
+        self.busy = True
+        try:
+            result = self.classify()
+            self.log_result(0, 0.0, 0.0, result)  # waypoint 0 = manual scan
+            s = String()
+            s.data = json.dumps(result)
+            self.health_pub.publish(s)
+            self.get_logger().info(
+                f"MANUAL SCAN: {result['class']} ({result['confidence']*100:.1f}%)")
+        except Exception as e:
+            self.get_logger().error(f'Manual scan failed: {e}')
         self.busy = False
 
     def classify(self):

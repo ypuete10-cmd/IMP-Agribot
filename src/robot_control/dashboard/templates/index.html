@@ -110,6 +110,7 @@
       <button id="wp-clear">Clear All</button>
       <button id="wp-run">Run</button>
       <button id="wp-stop">Stop</button>
+      <button id="ai-scan" style="background: #7b1fa2;">Scan Plant</button>
       <span id="wp-count">0 waypoints</span>
     </div>
   </div>
@@ -188,6 +189,12 @@ document.getElementById('wp-run').addEventListener('click', () => {
 document.getElementById('wp-stop').addEventListener('click', () => {
   autonomous = false;
   wpStop.publish(new ROSLIB.Message({ data: false }));
+// ===== MANUAL AI SCAN =====
+const aiScan = new ROSLIB.Topic({ ros, name: '/ai/scan_trigger', messageType: 'std_msgs/Empty' });
+document.getElementById('ai-scan').addEventListener('click', () => {
+  console.log('MANUAL SCAN triggered');
+  aiScan.publish(new ROSLIB.Message({}));
+});
 });
 
 // Sensor subscriptions

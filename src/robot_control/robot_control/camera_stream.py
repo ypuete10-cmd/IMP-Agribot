@@ -7,6 +7,9 @@ app = Flask(__name__)
 
 # USB webcam
 camera = cv2.VideoCapture(0)
+camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+camera.set(cv2.CAP_PROP_FPS, 15)
 
 def generate_frames():
     while True:
@@ -14,7 +17,7 @@ def generate_frames():
         if not success:
             break
         cv2.imwrite('/tmp/latest_frame.jpg', frame)  # shared frame for AI
-        ret, buffer = cv2.imencode('.jpg', frame)
+        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
