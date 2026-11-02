@@ -11,7 +11,7 @@ class EnvNode(Node):
     def __init__(self):
         super().__init__('env_node')
         self.bus = SMBus(1)
-        time.sleep(0.05)  # AHT20 power-on settle
+        time.sleep(0.05)  # AHT30 power-on settle
 
         # Initialize (calibration enable)
         self.bus.write_i2c_block_data(AHT20_ADDR, 0xBE, [0x08, 0x00])
@@ -48,7 +48,7 @@ class EnvNode(Node):
             h.relative_humidity = humidity / 100.0
             self.hum_pub.publish(h)
         except Exception as e:
-            self.get_logger().warn(f'AHT20 read failed: {e}')
+            self.get_logger().warn(f'AHT30 read failed: {e}')
 
 def main(args=None):
     rclpy.init(args=args)
