@@ -89,7 +89,7 @@
   <div class="card"><div class="num" id="s-head">0°</div><div class="lbl">Heading</div></div>
   <div class="card"><div class="num" id="s-temp">–</div><div class="lbl">Temp</div></div>
   <div class="card"><div class="num" id="s-hum">–</div><div class="lbl">Humidity</div></div>
-  <div class="card"><div class="num" id="s-ai">–</div><div class="lbl">AI last scan</div></div>
+  <div class="card"><label>AI Last Scan</label><div class="val" id="s-ai">–</div><div id="scan-status" style="font-size:12px;color:#888"></div></div>
 </div>
 
 <div class="drive-row">
@@ -111,6 +111,7 @@
       <button id="wp-run">Run</button>
       <button id="wp-stop">Stop</button>
       <button id="ai-scan" style="background: #7b1fa2;">Scan Plant</button>
+      <button id="clear-log" style="background: #d32f2f;">Clear Log</button>
       <span id="wp-count">0 waypoints</span>
     </div>
   </div>
@@ -189,12 +190,31 @@ document.getElementById('wp-run').addEventListener('click', () => {
 document.getElementById('wp-stop').addEventListener('click', () => {
   autonomous = false;
   wpStop.publish(new ROSLIB.Message({ data: false }));
+});
+
 // ===== MANUAL AI SCAN =====
 const aiScan = new ROSLIB.Topic({ ros, name: '/ai/scan_trigger', messageType: 'std_msgs/Empty' });
 document.getElementById('ai-scan').addEventListener('click', () => {
+  const status = document.getElementById('scan-status');
+  status.textContent = 'Scanning...';
+  status.style.color = '#ff9800';
   console.log('MANUAL SCAN triggered');
   aiScan.publish(new ROSLIB.Message({}));
+  setTimeout(refresh, 1500);  // refresh table after scan completes
 });
+
+// ===== CLEAR LOG =====
+document.getElementById('clear-log').addEventListener('click', () => {
+  if (confirm('Clear all scan results?')) {
+    fetch('/api/clear', { method: 'POST' })
+      .then(() => {
+        refresh();
+        document.getElementById('s-ai').textContent = '–';
+        const st = document.getElementById('scan-status');
+        st.textContent = 'Log cleared';
+        st.style.color = '#888';
+      });
+  }
 });
 
 // Sensor subscriptions
@@ -231,6 +251,9 @@ new ROSLIB.Topic({ ros, name: '/plant_health', messageType: 'std_msgs/String' })
     const j = JSON.parse(m.data);
     document.getElementById('s-ai').textContent =
       j.class + ' ' + (j.confidence * 100).toFixed(0) + '%';
+    const st = document.getElementById('scan-status');
+    st.textContent = 'Done';
+    st.style.color = '#4caf50';
   } catch (e) {}
 });
 

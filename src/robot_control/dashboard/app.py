@@ -11,6 +11,7 @@ import json, os, threading
 from datetime import datetime
 from flask import Flask, jsonify, render_template, request, abort, Response, stream_with_context
 import requests
+import time
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, 'data', 'results.json')
@@ -38,6 +39,12 @@ def index():
 @app.route('/api/results')
 def api_results():
     return jsonify(load_results())
+
+@app.route('/api/clear', methods=['POST'])
+def clear_results():
+    data = {'mission_id': 'INDOOR-RUN', 'updated': '', 'results': []}
+    save_results(data)
+    return {'status': 'cleared'}
 
 @app.route('/api/stats')
 def api_stats():
@@ -77,9 +84,14 @@ def cam():
 @app.route('/cam_feed')
 def cam_feed():
     def gen():
-        with requests.get(CAM + '/video_feed', stream=True, timeout=10) as r:
-            for chunk in r.iter_content(chunk_size=4096):
-                yield chunk
+        while True:
+            try:
+                with requests.get(CAM + '/video_feed', stream=True, timeout=10) as r:
+                    for chunk in r.iter_content(chunk_size=4096):
+                        yield chunk
+            except Exception:
+                time.sleep(1)  # camera_stream down — retry every 1s
+
     return Response(stream_with_context(gen()),
                     content_type='multipart/x-mixed-replace; boundary=frame')
 
