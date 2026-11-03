@@ -8,6 +8,12 @@ navigation with emergency stop hardening, **AI scan at each waypoint**
 (event-driven scanner + scan handshake), and results displayed on a unified
 farmer-facing Mission Control dashboard.
 
+**MAJOR MILESTONE (29 Oct 2026): End-to-end autonomous navigation + AI scan
+integration VERIFIED — robot drives, arrives, scans, and resumes autonomously.**
+
+**UPDATE (2 Nov 2026): Manual AI Scan Mode added — on-demand classification
+from dashboard without waypoint setup. MobileNetV3 normalization fixed
+([0,255] → [-1,1]) for significantly improved accuracy.**
 
 ![AgriBot system](https://github.com/user-attachments/assets/dc5bf120-d234-43b8-aae1-257221774d6b)
 
@@ -49,7 +55,7 @@ farmer-facing Mission Control dashboard.
   - `ekf_node` — `robot_localization`, fuses `/odom` + `/imu/data` → `/odometry/filtered` (5 Hz)
   - `waypoint_follower` — indoor autonomous nav, pause-resume on emergency + scan handshake
   - `ultrasonic_node` — 2× HC-SR04 front sensors, debounced emergency stop
-  - `ai_inference` — **event-driven TFLite scanner**: triggers on `/waypoint/reached`, classifies shared frame, publishes `/plant_health` + `/waypoint/scan_done`
+  - `ai_inference` — **event-driven TFLite scanner**: triggers on `/waypoint/reached` (autonomous) or `/ai/scan_trigger` (manual), classifies shared frame with MobileNetV3 normalization (img/127.5-1.0), publishes `/plant_health` + `/waypoint/scan_done`
 
 - **AI pipeline** — PlantVillage → 16-class subset (15 diseases + Other) →
   MobileNetV3-Small transfer learning → TFLite float16 (~90.1% val accuracy)
@@ -57,9 +63,10 @@ farmer-facing Mission Control dashboard.
 - **Mission Control dashboard** (Flask, port 8080) — unified page with live
   sensor cards (GPS, odom, heading, environment, AI scan), embedded camera +
   drive pad, **keyboard WASD/arrow control**, **waypoint Save/Run/Stop buttons**,
-  GPS health map, results table. All sensor data via `roslib.js` over rosbridge
-  WebSocket. Camera proxy with zero hardcoded IPs. Throttle rates on heavy
-  topics to prevent rosbridge queue overflow.
+  **"Scan Plant" button** (manual AI scan with status indicator), **Clear Log
+  button**, GPS health map, results table. All sensor data via `roslib.js` over
+  rosbridge WebSocket. Camera proxy with zero hardcoded IPs. Throttle rates on
+  heavy topics to prevent rosbridge queue overflow.
 
 - **Web drive control** — browser teleop at `/control` (standalone) and
   embedded in Mission Control. WASD + speed slider + auto-stop.
@@ -74,6 +81,11 @@ farmer-facing Mission Control dashboard.
   follower auto-resumes to next waypoint. Frame sharing via `/tmp/latest_frame.jpg`
   avoids camera device contention.
 
+- **Manual AI Scan Mode** — on-demand classification without waypoint setup.
+  Dashboard "Scan Plant" button publishes `/ai/scan_trigger` → AI grabs shared
+  frame → classifies → updates AI Last Scan card + Results Table. Logged as
+  "WP-00" in `results.json`.
+
 - **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
   starts the full robot stack (10 processes: 9 ROS nodes + camera stream).
 
@@ -85,12 +97,17 @@ farmer-facing Mission Control dashboard.
 Run → Drive → Arrive → Scan → Resume → Complete. ~5 cm accuracy over 1 m.
 (29 Oct 2026):
 
-![Working autonomous navigation — Mission Control dashboard during autonomous run with live sensor cards, camera feed, and waypoint status](https://github.com/user-attachments/assets/525101c1-b360-4ae8-b857-4fdcf9e1f634)
+![Mission Control dashboard during autonomous run with live sensor cards, camera feed, and waypoint status](https://github.com/user-attachments/assets/57fdb910-a351-4074-9a8e-0b985890a183)
+
+**AI-waypoint integration** — event-driven scanner with scan handshake
+(28 Oct 2026):
+
+![AgriBot on lab floor during waypoint navigation testing](https://github.com/user-attachments/assets/525101c1-b360-4ae8-b857-4fdcf9e1f634)
 
 **Emergency stop v2** — motor-level cut-off with pause-resume waypoint
 navigation (22 Oct 2026):
 
-![Emergency stop v2 — front HC-SR04 ultrasonic sensors with voltage dividers](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
+![Front HC-SR04 ultrasonic sensors with voltage dividers](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
 
 **Mission Control dashboard** — live sensor strip, camera, drive pad, GPS map,
 and results table (9 Oct 2026):
@@ -125,7 +142,7 @@ robot_control/
 ├── robot_control/              # ROS2 nodes
 │   ├── camera_stream.py         # + frame sharing to /tmp/latest_frame.jpg
 │   ├── capture.py
-│   ├── ai_inference.py          # + event-driven waypoint scanner
+│   ├── ai_inference.py          # + event-driven waypoint scanner + manual scan
 │   ├── motor_driver.py          # + emergency cut-off + watchdog latch
 │   ├── encoder_node.py
 │   ├── imu_node.py
@@ -138,10 +155,10 @@ robot_control/
 ├── config/
 │   └── ekf.yaml                 # robot_localization EKF config (5 Hz)
 ├── dashboard/                    # Mission Control (Flask)
-│   ├── app.py                    # Server + camera proxy
+│   ├── app.py                    # Server + camera proxy + /api/clear
 │   ├── result_logger.py
 │   ├── data/results.json
-│   ├── templates/index.html      # Mission Control page
+│   ├── templates/index.html      # Mission Control page + scan buttons
 │   └── drive/control.html        # Standalone drive page
 ├── models/                       # plant_health.tflite + class_names.json
 ├── training/                     # PlantVillage training pipeline scripts
@@ -192,9 +209,11 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Turn-in-place threshold | 0.8 rad (was 0.5) |
 | Emergency stop | Motor-level cut-off, 10 cm threshold, pause-resume |
 | Ultrasonic filtering | Staggered pings, median-of-3, 5-reading debounce, 2cm glitch filter |
-| AI trigger | Event-driven on `/waypoint/reached` |
+| AI trigger (autonomous) | Event-driven on `/waypoint/reached` |
+| AI trigger (manual) | On-demand via `/ai/scan_trigger` (dashboard button) |
 | Scan handshake | `/waypoint/reached` → classify → `/waypoint/scan_done` → resume |
 | Frame sharing | `/tmp/latest_frame.jpg` (avoids camera contention) |
+| AI preprocessing | MobileNetV3: img / 127.5 - 1.0 (normalized [-1, 1]) |
 | Results log | Atomic JSON write to `dashboard/data/results.json` |
 | Dashboard | Flask + roslib.js + Leaflet + OpenStreetMap |
 | Web drive | rosbridge WebSocket, /cmd_vel at 10 Hz |
@@ -222,6 +241,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Emergency stop hardening v2 | 22 Oct 2026 |
 | AI-waypoint integration | 28 Oct 2026 |
 | **Working autonomous nav + AI scan** | **29 Oct 2026** |
+| Manual AI Scan mode + normalization fix | 2 Nov 2026 |
 | Multi-waypoint mission with plant photos | *Next* |
 | Camera lag reduction | *Next* |
 | Field-test waypoint accuracy | *Next* |
