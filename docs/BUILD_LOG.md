@@ -4,7 +4,73 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
-## 29/10/2026 — Working autonomous navigation + AI scan integration
+## 2/11/2026 — Manual AI Scan Mode + UI Improvements + Normalization Fix
+
+### New Features
+
+**1. Manual AI Scan Mode** (`/ai/scan_trigger` topic)
+- Drive robot manually to any location (WASD, drive pad, or keyboard arrows)
+- Click **"Scan Plant"** button on dashboard to trigger AI classification
+- No need to save waypoints or run autonomous mission
+- Result logged to `results.json` with waypoint label **"WP-00"** (manual scan)
+- Publishes `/plant_health` for live dashboard AI Last Scan card update
+- `ai_inference.py`: added `manual_scan_cb` subscriber on `/ai/scan_trigger`
+
+**2. Scan Status Indicator**
+- Shows **"Scanning..."** (orange badge) immediately when button clicked
+- Changes to **"Done"** (green badge) when `/plant_health` result received
+- Updates AI Last Scan card with class name + confidence percentage
+
+**3. Clear Log Button**
+- Empties `results.json` via POST `/api/clear`
+- Confirmation dialog (`confirm()`) before clearing
+- Resets AI Last Scan display to idle state
+
+### Bug Fixes
+
+**4. AI Image Preprocessing Fix (`ai_inference.py`)**
+- **Fixed normalization:** changed from `[0, 255]` → `[-1, 1]`
+- MobileNetV3 standard preprocessing requires `img / 127.5 - 1.0`, not raw
+  uint8 `[0, 255]` values
+- Added debug logging of **all class probabilities** for troubleshooting:
+  ```
+  Class probabilities: Tomato___Late_blight=0.932, Potato___Early_blight=0.041, ...
+  ```
+- Improves classification accuracy significantly (raw uint8 was feeding
+  the model 100×-scale inputs, breaking softmax distribution)
+
+**5. Dashboard Camera Proxy — ChunkedEncodingError**
+- Documented: restarting bringup.launch.py breaks the Flask camera proxy
+  stream with `ChunkedEncodingError`
+- **Solution:** restart Flask dashboard (`Ctrl+C` then re-run `app.py`) +
+  browser refresh after every bringup restart
+
+### Files Changed
+
+- `robot_control/ai_inference.py` — Added `manual_scan_cb`, fixed
+  normalization (`img / 127.5 - 1.0`), added class-probability debug logging
+- `dashboard/templates/index.html` — Added Scan Plant button (purple),
+  Clear Log button, scan status indicator badge, manual scan JS handler
+- `dashboard/app.py` — Added POST `/api/clear` endpoint
+
+### Known Issues / Next Steps
+
+1. AI classification accuracy still being tuned (monitoring debug logs)
+2. Camera lag persists (planned: reduce to 640×480 @ 15 fps)
+3. Turning power may need increase for carpet surfaces
+4. Remove debug logging spam before demo day
+
+### How to Use Manual Scan
+
+1. Drive robot to plant using WASD or drive pad
+2. Click **"Scan Plant"** (purple button)
+3. Wait 1–2 seconds for "Scanning..." → "Done"
+4. Check **AI Last Scan** card and **Results Table**
+
+
+---
+
+## 29/10/2026 — MAJOR MILESTONE: Working autonomous navigation + AI scan integration
 
 **End-to-end autonomous waypoint navigation with AI plant health scanning — VERIFIED.**
 
@@ -82,10 +148,10 @@ Dated progress log with photos. Newest entries at the top.
 
 ### Photos & Videos
 
-**Terminal showing Mission Control during autonomous run**
+**Dashboard screenshot showing Mission Control during autonomous run**
 (live sensor cards, embedded camera, waypoint status):
 
-![Dashboard during autonomous run](https://github.com/user-attachments/assets/57fdb910-a351-4074-9a8e-0b985890a183)
+![Dashboard during autonomous run](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
 
 **AgriBot on the lab floor during 1 m autonomous navigation test**
 (~5 cm position accuracy, EKF fused odometry):
@@ -95,7 +161,7 @@ Dated progress log with photos. Newest entries at the top.
 **Close-up of AgriBot chassis showing front ultrasonic sensors**
 (dual HC-SR04 with voltage dividers, 10 cm emergency stop threshold):
 
-![Front sensors close-up](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
+![Front sensors close-up](https://github.com/user-attachments/assets/57fdb910-a351-4074-9a8e-0b985890a183)
 
 **Videos:**
 - [Dashboard showcase and waypoint demo](https://youtu.be/Y43O8ZLnX90)

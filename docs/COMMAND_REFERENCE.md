@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 29 October 2026
+Yvette Lee EnQi (25034155) · Last updated: 2 November 2026
 
 ---
 
@@ -27,6 +27,7 @@ Yvette Lee EnQi (25034155) · Last updated: 29 October 2026
 19. [Known Issues & Next Steps](#19-known-issues--next-steps)
 20. [AI-Waypoint Integration (28 Oct)](#20-ai-waypoint-integration-28-oct)
 21. [Working Autonomous Nav (29 Oct)](#21-working-autonomous-nav-29-oct)
+22. [Manual AI Scan Mode (2 Nov)](#22-manual-ai-scan-mode-2-nov)
 
 ---
 
@@ -343,6 +344,8 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | **EKF "Failed to meet update rate"** | Reduce `frequency` in `ekf.yaml` to 5.0 |
 | QoS mismatch (silent drop) | Explicit `QoSProfile(RELIABLE, VOLATILE, KEEP_LAST/10)` on both pub and sub |
 | rosbridge "Write queue full" | Add `throttle_rate` to heavy topic subscriptions |
+| **ChunkedEncodingError on camera** | Restart dashboard + browser refresh after bringup restart |
+| **AI always returns same class** | Check normalization: must be `img / 127.5 - 1.0`, not raw uint8 |
 
 ---
 
@@ -373,7 +376,7 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 
 ---
 
-## 17. Status Snapshot (29 Oct 2026)
+## 17. Status Snapshot (2 Nov 2026)
 
 | Component | Status |
 |-----------|--------|
@@ -392,6 +395,8 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | Mission Control dashboard | Working |
 | Web drive control | Working |
 | AI inference (TFLite) | Working |
+| **Manual AI Scan Mode** | **Working** |
+| **AI normalization fix** | **Working** ([-1, 1]) |
 | One-command bringup (10 processes) | Working |
 | QoS fix (/cmd_vel compatibility) | Working |
 | Watchdog latch fix | Working |
@@ -461,6 +466,9 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 5. **GPS no fix indoors** — expected; navsat transform ready for outdoor
 6. **LCD moiré** — phone-screen leaves misclassify; use printed/real leaves
 7. **Arrival tolerance** — 15 cm may need 20 cm for floor reliability
+8. **Camera proxy ChunkedEncodingError** — restart dashboard + browser after
+   bringup restart
+9. **Turning power on carpet** — may need PWM increase for carpet surfaces
 
 ### Next Steps
 
@@ -471,10 +479,11 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 | 3 | Remove debug logging |
 | 4 | Tune arrival tolerance (15→20 cm if needed) |
 | 5 | Field-test waypoint accuracy on actual floor |
-| 6 | ADS1115 battery monitor (when LiPo returns) |
-| 7 | Report writing + documentation |
-| 8 | Slides (due 30 Nov) |
-| 9 | Viva (2 Dec 2026) |
+| 6 | Turning power increase for carpet |
+| 7 | ADS1115 battery monitor (when LiPo returns) |
+| 8 | Report writing + documentation |
+| 9 | Slides (due 30 Nov) |
+| 10 | Viva (2 Dec 2026) |
 
 ---
 
@@ -702,7 +711,101 @@ Scan: done received, resuming to WP-1
 | EKF output rate | 5 Hz (stable, no missed deadlines) |
 | /cmd_vel publish rate | ~10 Hz during motion |
 | Scan latency | ~2 s (TFLite inference + JSON write) |
+| Manual scan | ~1–2 s via dashboard "Scan Plant" button |
+| AI preprocessing | MobileNetV3: img / 127.5 - 1.0 (normalized [-1, 1]) |
 | Mission sequence | Run → Drive → Arrive → Scan → Resume → Complete |
+
+---
+
+## 22. Manual AI Scan Mode (2 Nov)
+
+### Overview
+
+On-demand AI classification without waypoint setup. Drive robot manually to
+any plant, click **"Scan Plant"** on the dashboard, and receive classification
+results in 1–2 seconds.
+
+### How It Works
+
+1. User drives robot to target plant (WASD, arrow keys, or drive pad)
+2. Clicks **"Scan Plant"** button on Mission Control dashboard
+3. Dashboard publishes `/ai/scan_trigger` (`std_msgs/Empty`)
+4. `ai_inference` node receives trigger, grabs `/tmp/latest_frame.jpg`
+5. TFLite classification runs → publishes `/plant_health` (JSON string)
+6. Dashboard updates **AI Last Scan** card + **Results Table**
+7. Scan logged as `"WP-00"` (manual) in `results.json`
+
+### Dashboard UI Changes
+
+**Scan Plant button** (purple):
+```html
+<button id="scan-btn" onclick="triggerScan()">Scan Plant</button>
+```
+
+**Scan status indicator** (orange → green):
+```javascript
+// On click:
+document.getElementById('scan-status').textContent = 'Scanning...';
+document.getElementById('scan-status').className = 'badge orange';
+
+// On result received:
+document.getElementById('scan-status').textContent = 'Done';
+document.getElementById('scan-status').className = 'badge green';
+```
+
+**Clear Log button**:
+```javascript
+fetch('/api/clear', {method: 'POST'})
+  .then(() => { /* clear results table + reset AI Last Scan */ });
+```
+
+### AI Normalization Fix
+
+**Before (broken):**
+```python
+# Raw uint8 [0, 255] fed directly to model
+input_data = np.expand_dims(img, axis=0)  # WRONG
+```
+
+**After (fixed):**
+```python
+# MobileNetV3 standard: normalize to [-1, 1]
+img = img.astype(np.float32)
+img = img / 127.5 - 1.0
+input_data = np.expand_dims(img, axis=0)  # CORRECT
+```
+
+**Impact:** Raw uint8 inputs were 100× scale, breaking softmax distribution.
+After fix, class probabilities are properly distributed and accuracy improved.
+
+### Debug Logging
+
+```
+Class probabilities: Tomato___Late_blight=0.932, Potato___Early_blight=0.041, ...
+```
+
+Added to `ai_inference.py` for real-time accuracy tuning.
+
+### Quick Commands
+
+```bash
+# Trigger manual scan from terminal
+ros2 topic pub /ai/scan_trigger std_msgs/msg/Empty {}
+
+# Monitor classification result
+ros2 topic echo /plant_health
+
+# Check results.json
+python3 -m json.tool ~/ros2_ws/src/robot_control/dashboard/data/results.json
+```
+
+### Files
+
+| File | Change |
+|------|--------|
+| `ai_inference.py` | `manual_scan_cb`, normalization fix, debug logging |
+| `index.html` | Scan Plant button, Clear Log button, status indicator |
+| `app.py` | POST `/api/clear` endpoint |
 
 ---
 

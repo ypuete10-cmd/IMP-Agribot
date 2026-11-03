@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 29 October 2026 · Viva: 2 December 2026
+Last updated: 2 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -13,7 +13,7 @@ robot_control/
 │   ├── motor_driver.py          # PWM differential drive + emergency cut-off + watchdog latch
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
-│   ├── ai_inference.py          # Event-driven TFLite scanner (waypoint-triggered)
+│   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + normalization fix (waypoint-triggered)
 │   ├── encoder_node.py          # 4-wheel encoders + odometry + TF
 │   ├── imu_node.py              # BNO055 I2C IMU, publishes /imu/data
 │   ├── gps_node.py              # NEO-8M UART GPS, publishes /fix
@@ -92,17 +92,24 @@ robot_control/
 18. **End-to-end autonomous mission** — **VERIFIED:** Run → Drive → Arrive →
     Scan → Resume → Complete. 1 m navigation accurate to ~5 cm. Emergency
     stop pauses and resumes correctly.
+19. **Manual AI Scan Mode** — Drive robot manually to any location, click
+    **"Scan Plant"** on dashboard to trigger on-demand classification. Result
+    logged as "WP-00" with live status indicator ("Scanning..." → "Done").
+    No waypoint setup required.
+20. **AI normalization fix** — MobileNetV3 preprocessing corrected from raw
+    uint8 `[0, 255]` to normalized `[-1, 1]` (`img / 127.5 - 1.0`). Added
+    class-probability debug logging for accuracy tuning.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | AI scan with actual plant photo (verify classification at waypoint) | Oct |
-| 2 | Multi-waypoint mission (2+ waypoints with scan at each) | Oct |
-| 3 | Remove debug logging (reduce log spam) | Oct |
+| 1 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
+| 2 | Camera lag reduction (640×480 @ 15 fps) | Nov |
+| 3 | Remove debug logging (reduce log spam) | Nov |
 | 4 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
-| 5 | Camera lag reduction (640×480 @ 15 fps) | Nov |
-| 6 | Field-test waypoint accuracy on actual floor | Nov |
+| 5 | Field-test waypoint accuracy on actual floor | Nov |
+| 6 | Turning power increase for carpet surfaces | Nov |
 | 7 | ADS1115 battery monitor (when LiPo returns) | Nov |
 | 8 | Report writing + documentation | Nov–Dec |
 | 9 | Viva presentation slides | 30 Nov |
@@ -171,6 +178,7 @@ robot_control/
 | /waypoint/stop | Empty | dashboard | waypoint_follower |
 | /waypoint/reached | Float32MultiArray | waypoint_follower | ai_inference |
 | /waypoint/scan_done | Empty | ai_inference | waypoint_follower |
+| /ai/scan_trigger | Empty | dashboard | ai_inference |
 
 ## Known Issues
 
@@ -188,6 +196,10 @@ robot_control/
    Use printed photos or real leaves for demo.
 7. **Arrival tolerance** — currently 15 cm; may need 20 cm for reliability
    on actual floor surfaces.
+8. **Camera proxy ChunkedEncodingError** — restarting bringup breaks Flask
+   camera stream. Fix: restart dashboard + browser refresh after bringup.
+9. **Turning power on carpet** — may need PWM increase for carpet surfaces.
+   Current values tuned for smooth lab floor.
 
 ## Critical Path
 
@@ -197,6 +209,7 @@ robot_control/
 [COMPLETED] EKF → Waypoint nav → Ultrasonic v1 → Ultrasonic v2
 [COMPLETED] AI-waypoint integration (event-driven scanner + scan handshake)
 [COMPLETED] Working autonomous navigation + AI scan (29 Oct 2026)
+[COMPLETED] Manual AI Scan mode + normalization fix (2 Nov 2026)
 [ACTIVE]    Multi-waypoint mission → Camera lag fix → Field test
 [UPCOMING]  Battery monitor → Report → Slides → Viva (2 Dec 2026)
 ```
@@ -232,6 +245,12 @@ ros2 topic info /cmd_vel --verbose
 # Monitor waypoint scan handshake
 ros2 topic echo /waypoint/reached
 ros2 topic echo /waypoint/scan_done
+
+# Trigger manual AI scan (from terminal)
+ros2 topic pub /ai/scan_trigger std_msgs/msg/Empty {}
+
+# Monitor AI classification results
+ros2 topic echo /plant_health
 ```
 
 ## File Locations
