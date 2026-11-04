@@ -103,10 +103,15 @@ class AiInference(Node):
                                '(is camera_stream running?)')
         img = cv2.resize(frame, (224, 224))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = np.expand_dims(img.astype(np.float32), 0)
+        img = img.astype(np.float32) / 127.5 - 1.0  # MobileNetV3: normalize to [-1, 1]
+        img = np.expand_dims(img, 0)
         self.interp.set_tensor(self.inp['index'], img)
         self.interp.invoke()
         pred = self.interp.get_tensor(self.out['index'])[0]
+        top3 = np.argsort(pred)[-3:][::-1]
+        for i in top3:
+            self.get_logger().info(
+                '  %s: %.1f%%' % (self.class_names[i], float(pred[i]) * 100))
         top = int(np.argmax(pred))
         conf = float(pred[top])
         if conf < CONF_THRESHOLD:

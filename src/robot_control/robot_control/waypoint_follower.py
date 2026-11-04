@@ -112,7 +112,7 @@ class WaypointFollower(Node):
                 cmd.angular.z = max(-0.6, min(0.6, 1.2 * yaw_err))
                 cmd.linear.x = 0.0
             else:
-                cmd.linear.x = max(0.0, min(0.3, 0.5 * dist))
+                cmd.linear.x = max(0.0, min(0.15, 0.3 * dist))
                 cmd.angular.z = max(-0.4, min(0.4, 0.8 * yaw_err))
         else:
             # Arrived at waypoint - trigger AI scan for EVERY waypoint (including last)

@@ -230,7 +230,7 @@ new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix' }).su
     fx.style.color = '#b71c1c';
   }
 });
-new ROSLIB.Topic({ ros, name: '/odom', messageType: 'nav_msgs/Odometry', throttle_rate: 250, queue_length: 1 }).subscribe(m => {
+new ROSLIB.Topic({ ros, name: '/odometry/filtered', messageType: 'nav_msgs/Odometry', throttle_rate: 250, queue_length: 1 }).subscribe(m => {
   const d = Math.hypot(m.pose.pose.position.x, m.pose.pose.position.y);
   document.getElementById('s-dist').textContent = d.toFixed(1) + ' m';
 });
