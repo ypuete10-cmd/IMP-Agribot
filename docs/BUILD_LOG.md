@@ -4,6 +4,94 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 3/11/2026 — Dashboard Manual AI Scan + Camera Proxy Auto-Reconnect
+
+### New Features
+
+**1. Manual AI Scan Mode** (`/ai/scan_trigger` topic)
+- New **"Scan Plant"** button (purple) in Manual Control section
+- Drive robot anywhere manually, click button → AI classifies current camera
+  frame → result logged as **WP-00** in `results.json`
+- Publishes `/plant_health` for live dashboard update
+- No waypoints or autonomous mission needed — on-demand classification
+
+**2. Scan Status Indicator** (dashboard)
+- Shows **"Scanning..."** (orange) immediately on button click
+- Changes to **"Done"** (green) when `/plant_health` result arrives
+- Auto-refreshes results table 1.5 s after trigger
+
+**3. Clear Log Button** (red)
+- Confirmation dialog → POST `/api/clear` → empties `results.json`
+- Resets AI Last Scan card and stats row
+- New Flask endpoint using existing `save_results()` helper
+
+**4. Camera Proxy Auto-Reconnect** (`dashboard/app.py`)
+- `gen()` wrapped in `while True` + `try/except` — retries connection to
+  `camera_stream` every 1 s instead of crashing with `ChunkedEncodingError`
+- Dashboard **no longer needs restart** after every bringup restart
+
+### Bugs Fixed
+
+**1. `wp-stop` handler missing closing `});`**
+- Swallowed all following JS (ai-scan, clear-log, sensor subscriptions) as
+  callback body → entire script unbalanced, zero click handlers registered
+
+**2. Duplicate `});` after clear-log handler**
+- `SyntaxError: Unexpected token '}' (index):219` — deleted stray line
+
+**3. `/api/clear` endpoint `NameError`**
+- Used undefined `RESULTS_PATH`; replaced with existing `save_results()` helper
+
+**4. `cam_feed` route indentation**
+- `gen()` was nested inside `cam_feed` with `return Response()` unreachable →
+  "did not return a valid response"; restructured with proper 4/8-space indent
+
+### Verified Working
+
+- **Scan Plant:** click → "Scanning..." → classification logged → "Done"
+- **Clear Log:** confirm → table empties, stats reset
+- **Camera feed survives bringup restarts** (auto-reconnect)
+- All 10 bringup nodes start clean, `env_node` (AHT20 @ 0xBE init) healthy
+
+### Debugging Notes (for report)
+
+- **JS lesson:** one unbalanced brace kills ALL handlers silently — check
+  browser console on page load, not just on click
+- `getElementById` returning the element proves HTML loaded, but NOT that
+  handlers registered — use `element.click()` in console to split the problem
+- `curl -X POST` directly against Flask endpoints bypasses the browser to
+  isolate frontend vs backend faults
+
+### Photos
+
+**Dashboard — Mission Control showing sensor cards, camera feed, drive pad,
+and new Scan Plant / Clear Log buttons (before scanning):**
+
+![Dashboard with Scan Plant and Clear Log buttons, sensor cards showing Log cleared state](https://github.com/user-attachments/assets/0ac995ea-4919-4364-b34f-4ca283e3e312)
+
+**Manual AI Scan result — leaf image classified, WP-00 entries logged in
+Results Table with class names and confidence scores:**
+
+![Manual scan result — leaf classification with WP-00 entries in results table](https://github.com/user-attachments/assets/df292ec6-b211-4d51-94dd-d669df64da65)
+
+**Clear Log confirmation dialog — browser confirm() before wiping results:**
+
+![Clear Log confirmation dialog showing "Clear all scan results?" with OK/Cancel](https://github.com/user-attachments/assets/60ec318e-0293-4b00-930d-d534a1de7712)
+
+**After Clear Log — empty Results Table, reset stats, camera feed still live:**
+
+![After Clear Log — empty results table and reset AI stats](https://github.com/user-attachments/assets/e3dd380f-fb7e-4da3-b81a-086497af3662)
+
+### Next Session
+
+1. AI inference accuracy (Task 2): normalization fix (`/127.5 - 1.0`) +
+   top-3 probability debug logging
+2. Field-test full waypoint mission with plant photos
+3. Optional: camera resolution reduction (640×480 @ 15 fps) for lag
+
+
+---
+
 ## 2/11/2026 — Manual AI Scan Mode + UI Improvements + Normalization Fix
 
 ### New Features
@@ -67,6 +155,8 @@ Dated progress log with photos. Newest entries at the top.
 3. Wait 1–2 seconds for "Scanning..." → "Done"
 4. Check **AI Last Scan** card and **Results Table**
 
+**Suggested commit message:**
+`"Add Manual AI Scan mode with live status indicator and Clear Log button"`
 
 ---
 
