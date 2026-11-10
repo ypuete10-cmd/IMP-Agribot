@@ -48,7 +48,7 @@ class MotorDriver(Node):
         self.set_motor(self.left_pwm, self.left_in1, self.left_in2, left_speed)
         self.set_motor(self.right_pwm, self.right_in1, self.right_in2, right_speed)
     def set_motor(self, pwm, in1, in2, speed):
-        min_pwm = 0.4
+        min_pwm = 0.25
         
         if abs(speed) > 0 and abs(speed) < min_pwm:
             speed = min_pwm if speed > 0 else -min_pwm

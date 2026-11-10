@@ -1,28 +1,39 @@
 {
   "mission_id": "INDOOR-RUN",
-  "updated": "2026-11-04T20:08:04",
+  "updated": "2026-11-10T21:05:02",
   "results": [
     {
       "id": 1,
       "waypoint": "WP-01",
-      "timestamp": "2026-11-04T20:05:14",
+      "timestamp": "2026-11-10T20:15:14",
       "lat": 0.0,
       "lon": 0.0,
-      "x": -0.2,
-      "y": 0.92,
+      "x": -0.215,
+      "y": -0.437,
       "classification": "Tomato___Late_blight",
-      "confidence": 0.93
+      "confidence": 0.927
     },
     {
       "id": 2,
       "waypoint": "WP-01",
-      "timestamp": "2026-11-04T20:08:04",
+      "timestamp": "2026-11-10T21:04:20",
       "lat": 0.0,
       "lon": 0.0,
-      "x": -0.37,
-      "y": 1.272,
+      "x": 0.304,
+      "y": -1.357,
       "classification": "Tomato___Late_blight",
-      "confidence": 0.893
+      "confidence": 0.927
+    },
+    {
+      "id": 3,
+      "waypoint": "WP-01",
+      "timestamp": "2026-11-10T21:05:02",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.762,
+      "y": -2.059,
+      "classification": "Tomato___Late_blight",
+      "confidence": 0.927
     }
   ]
 }

@@ -88,11 +88,20 @@ class WaypointFollower(Node):
         self.get_logger().info('Stopped')
 
     def loop(self):
-        if self.emergency or self.scanning:
+        if self.emergency:
+            if self.running:
+                self.cmd_pub.publish(Twist())
+            return
+        if self.scanning:
             self.cmd_pub.publish(Twist())
             return
         if not self.running or not self.waypoints:
             return
+        if self.current_idx >= len(self.waypoints):
+            self.current_idx = 0
+            return
+
+        wp = self.waypoints[self.current_idx]
 
         wp = self.waypoints[self.current_idx]
         dx = wp['x'] - self.x
@@ -109,11 +118,11 @@ class WaypointFollower(Node):
 
         if dist > 0.15:  # 15 cm tolerance
             if abs(yaw_err) > 0.5:
-                cmd.angular.z = max(-0.6, min(0.6, 1.2 * yaw_err))
+                cmd.angular.z = max(-0.3, min(0.3, 1.2 * yaw_err))
                 cmd.linear.x = 0.0
             else:
                 cmd.linear.x = max(0.0, min(0.15, 0.3 * dist))
-                cmd.angular.z = max(-0.4, min(0.4, 0.8 * yaw_err))
+                cmd.angular.z = max(-0.3, min(0.3, 0.8 * yaw_err))
         else:
             # Arrived at waypoint - trigger AI scan for EVERY waypoint (including last)
             self.near_count = 0

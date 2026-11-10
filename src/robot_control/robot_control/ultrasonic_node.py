@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Front ultrasonic sensors — emergency stop.
 2× HC-SR04 angled inward for center coverage.
@@ -56,7 +56,10 @@ class UltrasonicNode(Node):
             if end > timeout:
                 return float('inf')
 
-        return (end - start) * SPEED_SOUND / 2.0
+        dist_m = (end - start) * SPEED_SOUND / 2.0
+        if dist_m > 3.0:      # beyond sane indoor range = timeout artifact
+            return float('inf')
+        return dist_m
 
     def loop(self):
         min_dist = float('inf')
@@ -83,7 +86,7 @@ class UltrasonicNode(Node):
 
         if self.close_count >= 3:
             self.last_stop = True
-        elif self.open_count >= 8:
+        elif self.open_count >= 10:
             self.last_stop = False
 
         stop = Bool()
