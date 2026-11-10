@@ -6,32 +6,18 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
 <style>
-.cam-wrapper {
-    position: relative;
-    width: 100%;
-    padding-bottom: 75%; /* 4:3 */
-    height: 0;
-    overflow: hidden;
-    background: #000;
-    border-radius: 6px;
-}
-.cam-wrapper #cam {
-    position: absolute;
-    object-fit: cover;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6f4; color: #223; }
-  header { background: #1b5e20; color: #fff; padding: 14px 20px;
-           display: flex; justify-content: space-between; align-items: center; }
-  header h1 { margin: 0; font-size: 1.3rem; }
+  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; background: #f0f4f0; color: #1a2e1a; }
+  header { background: #1b5e20; color: #fff; padding: 14px 24px;
+           display: flex; align-items: center; gap: 12px; }
+  header h1 { margin: 0; font-size: 20px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #c62828; }
+  .status-dot.ok { background: #2e7d32; }
   .stats { display: flex; gap: 12px; padding: 16px 20px 8px; flex-wrap: wrap; }
   .card { background: #fff; border-radius: 8px; padding: 12px 18px;
           box-shadow: 0 1px 3px rgba(0,0,0,.08); min-width: 110px; }
   .card .num { font-size: 1.35rem; font-weight: 700; }
+  .card .val { font-size: 1.35rem; font-weight: 700; }
   .card .lbl { color: #667; font-size: .75rem; text-transform: uppercase; }
   .sensors { display: flex; gap: 10px; padding: 8px 20px; flex-wrap: wrap;
              background: #e8f0e8; border-bottom: 1px solid #d5e0d5; }
@@ -40,22 +26,29 @@
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
          margin-right: 5px; background: #c00; }
   .dot.ok { background: #2e7d32; }
+  .cam-wrapper { position: relative; width: 100%; padding-bottom: 75%;
+                 height: 0; overflow: hidden; background: #000; border-radius: 6px; }
+  .cam-wrapper #cam { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                      border: 0; object-fit: cover; display: block; }
   .drive-row { display: grid; grid-template-columns: 1fr 320px; gap: 16px;
                padding: 12px 20px; }
   @media (max-width: 900px) { .drive-row { grid-template-columns: 1fr; } main { grid-template-columns: 1fr; } }
   .pad { display: grid; grid-template-columns: repeat(3, 80px); gap: 6px;
          justify-content: center; padding: 10px; }
   .pad button { height: 56px; font-size: 22px; border: 0; border-radius: 8px;
-                background: #1b5e20; color: #fff; touch-action: none; cursor: pointer; }
+                background: #1b5e20; color: #fff; touch-action: none; cursor: pointer; user-select: none; }
   .pad button:active { background: #f9a825; }
   #stop { background: #b71c1c; grid-column: 2; }
-  .wp-controls { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .wp-controls button { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-size: 13px; }
+  .wp-controls { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;
+                 justify-content: center; align-items: center; }
+  .wp-controls button { padding: 8px 14px; border: none; border-radius: 6px;
+                        cursor: pointer; color: #fff; font-size: 13px; }
   #wp-save { background: #2e7d32; }
   #wp-clear { background: #c62828; }
   #wp-run { background: #1565c0; }
   #wp-stop { background: #ef6c00; }
   #wp-count { align-self: center; font-size: 13px; color: #555; }
+  .slider { width: 100%; margin: 8px 0; }
   main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 20px 20px; }
   #map { height: 460px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   table { width: 100%; border-collapse: collapse; background: #fff;
@@ -71,8 +64,9 @@
 </head>
 <body>
 <header>
+  <div id="status" class="status-dot"></div>
   <h1>AgriBot Mission Control</h1>
-  <div><span class="dot" id="ros-dot"></span><span id="ros-status">connecting…</span>
+  <div style="margin-left:auto"><span id="ros-status">connecting…</span>
        · Mission: <b id="mission">–</b> · <span id="updated">–</span></div>
 </header>
 
@@ -89,29 +83,32 @@
   <div class="card"><div class="num" id="s-head">0°</div><div class="lbl">Heading</div></div>
   <div class="card"><div class="num" id="s-temp">–</div><div class="lbl">Temp</div></div>
   <div class="card"><div class="num" id="s-hum">–</div><div class="lbl">Humidity</div></div>
-  <div class="card"><label>AI Last Scan</label><div class="val" id="s-ai">–</div><div id="scan-status" style="font-size:12px;color:#888"></div></div>
+  <div class="card"><div class="num" id="s-ai">–</div><div class="lbl">AI Last Scan</div>
+       <div id="scan-status" style="font-size:12px;color:#888"></div></div>
+  <div class="card"><div class="val" id="dbg" style="font-size:13px;font-family:ui-monospace,monospace">–</div>
+       <div class="lbl">Nav Debug</div></div>
 </div>
 
 <div class="drive-row">
   <div class="cam-wrapper">
     <img id="cam" src="/cam_feed" alt="Camera">
-</div>
+  </div>
   <div class="card">
     <div class="lbl" style="margin-bottom:6px">Manual drive (hold)</div>
     <div class="pad">
-      <span></span><button id="fwd">▲</button><span></span>
-      <button id="left">◀</button><button id="stop">■</button><button id="right">▶</button>
-      <span></span><button id="rev">▼</button><span></span>
+      <span></span><button id="fwd">&#9650;</button><span></span>
+      <button id="left">&#9664;</button><button id="stop">&#9632;</button><button id="right">&#9654;</button>
+      <span></span><button id="rev">&#9660;</button><span></span>
     </div>
     <div style="text-align:center">Speed
-      <input type="range" id="speed" min="0.2" max="0.8" step="0.1" value="0.4"></div>
+      <input type="range" id="speed" class="slider" min="0.2" max="0.8" step="0.1" value="0.4"></div>
     <div class="wp-controls">
       <button id="wp-save">Save Waypoint</button>
       <button id="wp-clear">Clear All</button>
       <button id="wp-run">Run</button>
       <button id="wp-stop">Stop</button>
-      <button id="ai-scan" style="background: #7b1fa2;">Scan Plant</button>
-      <button id="clear-log" style="background: #d32f2f;">Clear Log</button>
+      <button id="ai-scan" style="background:#7b1fa2;">Scan Plant</button>
+      <button id="clear-log" style="background:#d32f2f;">Clear Log</button>
       <span id="wp-count">0 waypoints</span>
     </div>
   </div>
@@ -129,20 +126,19 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ---------- ROS live sensors + drive ----------
+// ===== ROS CONNECTION =====
 const ros = new ROSLIB.Ros({ url: 'ws://' + location.hostname + ':9090' });
-const dot = document.getElementById('ros-dot'), rstat = document.getElementById('ros-status');
-ros.on('connection', () => { dot.className = 'dot ok'; rstat.textContent = 'robot connected'; });
-ros.on('error',      () => { dot.className = 'dot';    rstat.textContent = 'ROS error (bringup running?)'; });
-ros.on('close',      () => { dot.className = 'dot';    rstat.textContent = 'disconnected'; });
+const dot = document.getElementById('status'), rstat = document.getElementById('ros-status');
+ros.on('connection', () => { dot.className = 'status-dot ok'; rstat.textContent = 'robot connected'; });
+ros.on('error',      () => { dot.className = 'status-dot';    rstat.textContent = 'ROS error (bringup running?)'; });
+ros.on('close',      () => { dot.className = 'status-dot';    rstat.textContent = 'disconnected'; });
 
-// Drive pad (same as /control)
+// ===== DRIVE PAD =====
 const cmdVel = new ROSLIB.Topic({ ros, name: '/cmd_vel', messageType: 'geometry_msgs/Twist' });
 let vx = 0, vz = 0, autonomous = false;
 setInterval(() => {
   if (!autonomous) {
-    cmdVel.publish(new ROSLIB.Message({
-      linear: { x: vx, y: 0, z: 0 }, angular: { x: 0, y: 0, z: vz } }));
+    cmdVel.publish(new ROSLIB.Message({ linear: { x: vx, y: 0, z: 0 }, angular: { x: 0, y: 0, z: vz } }));
   }
 }, 100);
 const spd = () => parseFloat(document.getElementById('speed').value);
@@ -159,7 +155,8 @@ document.getElementById('stop').addEventListener('pointerdown', stopD);
 window.addEventListener('blur', stopD);
 
 // ===== KEYBOARD CONTROL =====
-const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+const keys = { w: false, a: false, s: false, d: false,
+               ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 document.addEventListener('keydown', (e) => {
   if (keys.hasOwnProperty(e.key)) { keys[e.key] = true; e.preventDefault(); updateKeyboardCmd(); }
 });
@@ -195,77 +192,93 @@ document.getElementById('wp-stop').addEventListener('click', () => {
 // ===== MANUAL AI SCAN =====
 const aiScan = new ROSLIB.Topic({ ros, name: '/ai/scan_trigger', messageType: 'std_msgs/Empty' });
 document.getElementById('ai-scan').addEventListener('click', () => {
-  const status = document.getElementById('scan-status');
-  status.textContent = 'Scanning...';
-  status.style.color = '#ff9800';
+  const st = document.getElementById('scan-status');
+  st.textContent = 'Scanning...';
+  st.style.color = '#ff9800';
   console.log('MANUAL SCAN triggered');
   aiScan.publish(new ROSLIB.Message({}));
-  setTimeout(refresh, 1500);  // refresh table after scan completes
+  setTimeout(refresh, 1500);
 });
 
 // ===== CLEAR LOG =====
 document.getElementById('clear-log').addEventListener('click', () => {
   if (confirm('Clear all scan results?')) {
-    fetch('/api/clear', { method: 'POST' })
-      .then(() => {
-        refresh();
-        document.getElementById('s-ai').textContent = '–';
-        const st = document.getElementById('scan-status');
-        st.textContent = 'Log cleared';
-        st.style.color = '#888';
-      });
+    fetch('/api/clear', { method: 'POST' }).then(() => {
+      refresh();
+      document.getElementById('s-ai').textContent = '–';
+      const st = document.getElementById('scan-status');
+      st.textContent = 'Log cleared';
+      st.style.color = '#888';
+    });
   }
 });
 
-// Sensor subscriptions
-new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix' }).subscribe(m => {
+// ===== SENSOR SUBSCRIPTIONS =====
+new ROSLIB.Topic({ ros, name: '/fix', messageType: 'sensor_msgs/NavSatFix', throttle_rate: 500, queue_length: 1 }).subscribe(m => {
   const el = document.getElementById('s-gps'), fx = document.getElementById('s-gpsfix');
   if (m.status.status >= 0) {
     el.textContent = m.latitude.toFixed(5) + ', ' + m.longitude.toFixed(5);
-    fx.textContent = '● fix';
-    fx.style.color = '#2e7d32';
+    fx.textContent = '● fix'; fx.style.color = '#2e7d32';
   } else {
     el.textContent = 'no fix';
-    fx.textContent = '○ waiting';
-    fx.style.color = '#b71c1c';
+    fx.textContent = '○ waiting'; fx.style.color = '#b71c1c';
   }
 });
+
 new ROSLIB.Topic({ ros, name: '/odometry/filtered', messageType: 'nav_msgs/Odometry', throttle_rate: 250, queue_length: 1 }).subscribe(m => {
   const d = Math.hypot(m.pose.pose.position.x, m.pose.pose.position.y);
   document.getElementById('s-dist').textContent = d.toFixed(1) + ' m';
+  // Nav debug: pos, yaw, dist/err to first waypoint
+  const q = m.pose.pose.orientation;
+  const yaw = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
+  let txt = 'pos ' + m.pose.pose.position.x.toFixed(2) + ',' + m.pose.pose.position.y.toFixed(2)
+          + ' yaw ' + (yaw * 180 / Math.PI).toFixed(0) + '°';
+  const wps = window._wps || [];
+  if (wps.length > 0) {
+    const dx = wps[0].x - m.pose.pose.position.x, dy = wps[0].y - m.pose.pose.position.y;
+    const dist = Math.hypot(dx, dy);
+    let err = Math.atan2(dy, dx) - yaw;
+    while (err > Math.PI) err -= 2 * Math.PI;
+    while (err < -Math.PI) err += 2 * Math.PI;
+    txt += ' dist ' + dist.toFixed(2) + ' err ' + (err * 180 / Math.PI).toFixed(0) + '°';
+  }
+  document.getElementById('dbg').textContent = txt;
 });
+
 new ROSLIB.Topic({ ros, name: '/imu/data', messageType: 'sensor_msgs/Imu', throttle_rate: 100, queue_length: 1 }).subscribe(m => {
   const q = m.orientation;
-  const yaw = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
-  let deg = yaw * 180 / Math.PI; if (deg < 0) deg += 360;
+  let deg = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z)) * 180 / Math.PI;
+  if (deg < 0) deg += 360;
   document.getElementById('s-head').textContent = deg.toFixed(0) + '°';
 });
-new ROSLIB.Topic({ ros, name: '/env/temperature', messageType: 'sensor_msgs/Temperature' }).subscribe(m => {
+
+new ROSLIB.Topic({ ros, name: '/env/temperature', messageType: 'sensor_msgs/Temperature', throttle_rate: 500, queue_length: 1 }).subscribe(m => {
   document.getElementById('s-temp').textContent = m.temperature.toFixed(1) + '°C';
 });
-new ROSLIB.Topic({ ros, name: '/env/humidity', messageType: 'sensor_msgs/RelativeHumidity' }).subscribe(m => {
+
+new ROSLIB.Topic({ ros, name: '/env/humidity', messageType: 'sensor_msgs/RelativeHumidity', throttle_rate: 500, queue_length: 1 }).subscribe(m => {
   document.getElementById('s-hum').textContent = (m.relative_humidity * 100).toFixed(0) + '%';
 });
-new ROSLIB.Topic({ ros, name: '/plant_health', messageType: 'std_msgs/String' }).subscribe(m => {
+
+new ROSLIB.Topic({ ros, name: '/plant_health', messageType: 'std_msgs/String', throttle_rate: 200, queue_length: 1 }).subscribe(m => {
   try {
     const j = JSON.parse(m.data);
-    document.getElementById('s-ai').textContent =
-      j.class + ' ' + (j.confidence * 100).toFixed(0) + '%';
+    document.getElementById('s-ai').textContent = j.class + ' ' + (j.confidence * 100).toFixed(0) + '%';
     const st = document.getElementById('scan-status');
     st.textContent = 'Done';
     st.style.color = '#4caf50';
   } catch (e) {}
 });
 
-// ---------- Map + results (unchanged) ----------
+// ===== MAP + RESULTS =====
 const map = L.map('map').setView([1.35042, 103.68241], 18);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
 let markers = [];
 function esc(s) {
-  return String(s).replace(/[&<>"]/g,
-    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return String(s == null ? '' : s).replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 async function refresh() {
@@ -280,25 +293,29 @@ async function refresh() {
     document.getElementById('st-pct').textContent = stats.pct_diseased + '%';
     document.getElementById('tbody').innerHTML = data.results.slice().reverse().map(x => {
       const dis = x.classification !== 'healthy';
-      return `<tr class="${dis ? 'diseased' : ''}"><td>${x.id}</td>` +
-        `<td>${esc(x.waypoint)}</td><td>${esc(x.timestamp)}</td>` +
-        `<td><span class="badge ${dis ? 'b-diseased' : 'b-healthy'}">${esc(x.classification)}</span></td>` +
-        `<td>${(x.confidence * 100).toFixed(0)}%</td>` +
-        `<td>${x.lat.toFixed(5)}</td><td>${x.lon.toFixed(5)}</td></tr>`;
+      return '<tr class="' + (dis ? 'diseased' : '') + '"><td>' + x.id + '</td>' +
+        '<td>' + esc(x.waypoint) + '</td><td>' + esc(x.timestamp) + '</td>' +
+        '<td><span class="badge ' + (dis ? 'b-diseased' : 'b-healthy') + '">' + esc(x.classification) + '</span></td>' +
+        '<td>' + (x.confidence * 100).toFixed(0) + '%</td>' +
+        '<td>' + (x.lat || 0).toFixed(5) + '</td><td>' + (x.lon || 0).toFixed(5) + '</td></tr>';
     }).join('');
-    markers.forEach(m => map.removeLayer(m));
+    markers.forEach(mk => map.removeLayer(mk));
     markers = [];
     data.results.filter(x => x.lat !== 0.0 || x.lon !== 0.0).forEach(x => {
       const dis = x.classification !== 'healthy';
-      const m = L.circleMarker([x.lat, x.lon], {
+      const mk = L.circleMarker([x.lat, x.lon], {
         radius: 8, color: dis ? '#b71c1c' : '#2e7d32',
         fillColor: dis ? '#ef5350' : '#66bb6a', fillOpacity: 0.85
-      }).addTo(map).bindPopup(
-        `<b>${esc(x.waypoint)}</b><br>${esc(x.classification)} ` +
-        `(${(x.confidence * 100).toFixed(0)}%)`);
-      markers.push(m);
+      }).addTo(map).bindPopup('<b>' + esc(x.waypoint) + '</b><br>' + esc(x.classification) +
+        ' (' + (x.confidence * 100).toFixed(0) + '%)');
+      markers.push(mk);
     });
   } catch (e) { console.error('refresh failed', e); }
+  try {
+    const w = await (await fetch('/api/waypoints')).json();
+    document.getElementById('wp-count').textContent = w.count + ' waypoints';
+    window._wps = w.waypoints;
+  } catch (e) {}
 }
 refresh();
 setInterval(refresh, 5000);

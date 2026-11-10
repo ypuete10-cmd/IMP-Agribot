@@ -40,6 +40,15 @@ def index():
 def api_results():
     return jsonify(load_results())
 
+@app.route('/api/waypoints')
+def api_waypoints():
+    try:
+        with open(os.path.expanduser('~/ros2_ws/src/robot_control/dashboard/data/waypoints.json')) as f:
+            wps = json.load(f)
+    except Exception:
+        wps = []
+    return jsonify({'count': len(wps), 'waypoints': wps})
+
 @app.route('/api/clear', methods=['POST'])
 def clear_results():
     data = {'mission_id': 'INDOOR-RUN', 'updated': '', 'results': []}
