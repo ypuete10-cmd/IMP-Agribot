@@ -4,6 +4,164 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 10/11/2026 — THREE ROOT CAUSES FOUND: Navigation / Ultrasonic / Camera
+
+### Overview
+
+The most diagnostic session yet — every "mystery" symptom traced to a
+concrete hardware or configuration cause. Three independent root causes
+identified and fixed in one session.
+
+---
+
+### Root Cause 1 — Motor PWM Floor Boost (CRITICAL, navigation)
+
+**Symptom:** Robot "randomly turning," heading estimate moving impossibly
+fast, arcs during turn-in-place, driving away while believing aligned.
+
+**Discovery:** WP debug log showed commanded `0.3 rad/s` but yaw changing at
+`1.1–2.2 rad/s` (4–7×). The EKF was **right** — the robot was physically
+moving that fast.
+
+**Cause:** `min_pwm = 0.4` in `motor_driver.py` forces **every** nonzero motor
+command to ≥40% duty cycle. A gentle `0.3 rad/s` turn command becomes motors
+at flat-out speed → overshoot, oscillation, asymmetric arcs (consistent right
+bias observed).
+
+**Fix:** `min_pwm` 0.4 → **0.25**
+
+**Lesson:** Verify actuator output before blaming estimators. The EKF was
+telling the truth — the robot physically overshot because PWM floor was too
+high.
+
+---
+
+### Root Cause 2 — IMU Absolute Yaw Fused in EKF (CRITICAL, navigation)
+
+**Symptom:** "Always turns when pressing Run," position and heading telling
+different stories, robot calmly driving AWAY from waypoint while `yaw_err ≈ 0`
+(log: dist 2.19 → 4.47 at yaw_err -0.10).
+
+**Cause:** `ekf.yaml` fused BNO055 **absolute yaw** (magnetometer-derived,
+calib mag=0, motor-wire magnetic interference after rewiring) mixed with
+encoder odometry. This corrupted the heading frame — encoder-derived position
+and IMU-derived heading were in different coordinate frames.
+
+**Fix:** `ekf.yaml` — `imu0` configuration changed:
+```yaml
+# OLD (broken):
+imu0: /imu/data
+imu0_config: [false, false, false,
+              true,  true,  true,   # orientation x,y,z (ABSOLUTE YAW — wrong!)
+              false, false, false,
+              true,  true,  true,
+              true,  true,  true]
+
+# NEW (fixed):
+imu0: /imu/data
+imu0_config: [false, false, false,
+              false, false, false,  # orientation x,y,z — DISABLED
+              false, false, false,
+              true,  true,  true,   # angular velocity x,y,z (yaw rate only)
+              false, false, false]
+imu0_differential: false
+```
+Encoders now **own yaw** (self-consistent with position); IMU smooths yaw rate
+only. No absolute heading from magnetometer.
+
+**Verification:** `yaw_check.py` compares `/odom` vs `/odometry/filtered` yaw
+during hand-rotation. Stationary + dynamic test isolation confirms fix.
+
+---
+
+### Root Cause 3 — Ultrasonic Sensors on 3.3V Rail (HARDWARE)
+
+**Symptom:** Weeks of phantom obstacles, missed detections, idle OBSTACLE spam,
+3–50 cm garbage at standstill, robot ran into a bag undetected.
+
+**Cause:** HC-SR04 is a **5V sensor**; running on the 3.3V rail starved the
+transmitter → marginal/garbage echoes. The sensor "worked" (returned numbers)
+but those numbers were noise.
+
+**Fix:**
+1. VCC moved to **Pi 5V Pin 2** (echo dividers 1kΩ+2kΩ retained on echo lines)
+2. `>3.0 m` artifact filter in `measure()` — kills the `804 cm` timeout-boundary
+   junk value that appeared when no real echo returned
+
+**Verified:** Standalone `test_ultrasonic.py` shows stable real readings;
+sensors track hand movement correctly.
+
+**Documented limitation:** Soft objects (bags, fabric) absorb ultrasound —
+this is a physics limitation of the sensor class, not a wiring issue.
+
+---
+
+### Bugs Fixed
+
+**1. Follower `IndexError` crash**
+- Loop-top edit had dropped the `not running/waypoints` guard
+- Restored guard + `current_idx` clamp to prevent out-of-bounds
+
+**2. Manual-drive jerking**
+- Follower published zero `cmd_vel` during emergency even in **manual** mode,
+  fighting dashboard drive commands
+- Fix: publish zeros **only when autonomous** (`self.autonomous` flag check)
+
+**3. Camera `/video_feed` 500 + dashboard glitching**
+- Atomic write used `.jpg.tmp` which OpenCV cannot encode (extension drives
+  codec selection)
+- Fix: temp file renamed to `_tmp.jpg` + `os.replace`
+
+**4. Dashboard "0 waypoints" never updated**
+- No code ever set the waypoint count display
+- Fix: new Flask endpoint `/api/waypoints` + live count in dashboard
+
+---
+
+### Dashboard — Full Rewrite of `index.html`
+
+- **Nav Debug card:** live pos, yaw, dist + `yaw_err` to first waypoint
+  (diagnosed Root Causes 1 & 2 from this card's data path)
+- **Live waypoint count** via new Flask endpoint `/api/waypoints`
+- **Scan Plant** button + "Scanning... / Done" status, **Clear Log** button
+- **Throttled subscriptions:** IMU 10 Hz, odom 4 Hz, env 2 Hz to stop
+  rosbridge queue overflow
+
+---
+
+### Diagnostic Tooling Added
+
+| Tool | Purpose |
+|------|---------|
+| `yaw_check.py` | Prints `/odom` and `/odometry/filtered` yaw side by side |
+| `test_ultrasonic.py` | Standalone HC-SR04 tester (no ROS, needs exclusive GPIO) |
+| Follower 10 Hz WP/CMD debug | Primary diagnostic instrument — `dist`, `yaw_err`, commanded `vx`, `vz` |
+
+---
+
+### Tomorrow's Verification Sequence (All Fixes Staged)
+
+1. Reboot → tmux → single launch → gate check
+2. Dashboard green, wp-count live, Nav Debug card populated
+3. Straight run: expect small stable `yaw_err`, monotonic `dist` decrease
+4. Box test (solid obstacle): pause ~20 cm, hold, resume on removal
+5. AI screen test (dataset image on phone, tilted against glare)
+
+---
+
+### Known Limitations for Report
+
+1. **Soft-object ultrasonic detection** — physics of the sensor class (bags,
+   fabric absorb ultrasound)
+2. **PlantVillage domain gap** — prints/photos-of-photos degrade AI accuracy;
+   screen-displayed dataset images expected to classify correctly
+3. **Encoder drift at standstill** — mitigated by short obstacle holds
+
+**Suggested commit message:**
+`"Root-cause week: min_pwm boost fix, EKF IMU-yaw fusion removal, ultrasonic 5V power fix, follower guards, dashboard rewrite with Nav Debug"`
+
+---
+
 ## 3/11/2026 — Dashboard Manual AI Scan + Camera Proxy Auto-Reconnect
 
 ### New Features
@@ -89,6 +247,8 @@ Results Table with class names and confidence scores:**
 2. Field-test full waypoint mission with plant photos
 3. Optional: camera resolution reduction (640×480 @ 15 fps) for lag
 
+**Suggested commit message:**
+`"Manual AI Scan mode, Clear Log, scan status indicator, camera proxy auto-reconnect, JS syntax fixes"`
 
 ---
 
