@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 2 November 2026 · Viva: 2 December 2026
+Last updated: 10 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 2 November 2026 · Viva: 2 December 2026
 ```
 robot_control/
 ├── robot_control/
-│   ├── motor_driver.py          # PWM differential drive + emergency cut-off + watchdog latch
+│   ├── motor_driver.py          # PWM diff-drive + e-stop + watchdog latch + min_pwm=0.25
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
 │   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + normalization fix (waypoint-triggered)
@@ -99,6 +99,26 @@ robot_control/
 20. **AI normalization fix** — MobileNetV3 preprocessing corrected from raw
     uint8 `[0, 255]` to normalized `[-1, 1]` (`img / 127.5 - 1.0`). Added
     class-probability debug logging for accuracy tuning.
+21. **Motor PWM floor fix (10 Nov)** — `min_pwm` reduced from 0.4 → **0.25**.
+    Previous 0.4 forced every nonzero motor command to ≥40% duty, causing
+    overshoot, oscillation, and asymmetric arcs during turns. EKF was correct —
+    the robot physically moved 4–7× faster than commanded.
+22. **EKF IMU yaw fusion fix (10 Nov)** — `ekf.yaml` changed: IMU absolute yaw
+    (magnetometer-derived, corrupted by motor-wire magnetic interference)
+    **disabled**. Encoders now own yaw (self-consistent with position); IMU
+    contributes yaw rate only. Fixed robot driving away from waypoint while
+    `yaw_err ≈ 0`.
+23. **Ultrasonic 5V power fix (10 Nov)** — HC-SR04 VCC moved from 3.3V rail to
+    **Pi 5V Pin 2** (echo dividers retained). Previous 3.3V supply starved the
+    transmitter → weeks of phantom obstacles and garbage readings. Added
+    `>3.0 m` artifact filter to kill timeout-boundary junk (`804 cm`).
+24. **Dashboard v2 rewrite (10 Nov)** — Full `index.html` rewrite: Nav Debug
+    card (live pos, yaw, dist, yaw_err), live waypoint count via `/api/waypoints`,
+    Scan Plant + Clear Log buttons, throttled subscriptions (IMU 10Hz, odom 4Hz,
+    env 2Hz) to stop rosbridge queue overflow.
+25. **Diagnostic tooling (10 Nov)** — `yaw_check.py` (odom vs filtered yaw),
+    `test_ultrasonic.py` (standalone HC-SR04 tester), follower 10Hz WP/CMD
+    debug logging.
 
 ## What Is Left (Priority Order)
 
@@ -200,6 +220,13 @@ robot_control/
    camera stream. Fix: restart dashboard + browser refresh after bringup.
 9. **Turning power on carpet** — may need PWM increase for carpet surfaces.
    Current values tuned for smooth lab floor.
+10. **Soft-object ultrasonic detection** — bags/fabric absorb ultrasound.
+    This is a physics limitation of HC-SR04, not a wiring issue. Solid
+    obstacles (walls, boxes) detected reliably after 5V power fix.
+11. **PlantVillage domain gap** — prints/photos-of-photos degrade AI accuracy.
+    Screen-displayed dataset images expected to classify correctly.
+12. **Encoder drift at standstill** — minor drift during long obstacle holds.
+    Mitigated by short holds; documented limitation for report.
 
 ## Critical Path
 
@@ -210,8 +237,9 @@ robot_control/
 [COMPLETED] AI-waypoint integration (event-driven scanner + scan handshake)
 [COMPLETED] Working autonomous navigation + AI scan (29 Oct 2026)
 [COMPLETED] Manual AI Scan mode + normalization fix (2 Nov 2026)
-[ACTIVE]    Multi-waypoint mission → Camera lag fix → Field test
-[UPCOMING]  Battery monitor → Report → Slides → Viva (2 Dec 2026)
+[COMPLETED] Three root causes fixed: min_pwm 0.25, EKF IMU-yaw removal, ultrasonic 5V (10 Nov 2026)
+[ACTIVE]    Verification sequence (straight run → box test → AI screen test)
+[UPCOMING]  Multi-waypoint mission → Camera lag fix → Field test → Report → Slides → Viva (2 Dec 2026)
 ```
 
 ## Quick Commands
