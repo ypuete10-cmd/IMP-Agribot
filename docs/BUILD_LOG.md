@@ -4,6 +4,105 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 12/11/2026 — AI ROOT CAUSE CLOSED — Model Retrained at 95.1%
+
+### The Final AI Diagnosis (Multi-Day Investigation Concluded)
+
+**Yesterday's decisive test:** Original dataset image fed **DIRECTLY** (no
+print, no camera) → still output "Tomato Late blight" at 84.8%. This ruled
+out camera/preprocessing as the problem.
+
+**Ruled out label permutation:** Yesterday's 4-known-inputs test (potato
+healthy, tomato late blight, bell pepper healthy, potato early blight) all
+output the **same class** at ~90%. A label permutation would give *varying*
+wrong answers — not constant ones.
+
+**Verification script confirmed:** float32 in/out (NOT quantized), so the
+`[-1, 1]` preprocessing is appropriate → **the model file itself is
+degenerate** (undertrained/broken at export, likely never verified with real
+images — earliest results.json entries were simulated data).
+
+**Conclusion:** Retraining is the only correct fix. The deployment loop is a
+2-minute file swap (pipeline proven end-to-end this week).
+
+---
+
+### Retraining — Two-Stage Process
+
+**Stage 1 — Colab CPU fallback (GPU quota exhausted):**
+- Small custom CNN on 3200-image subset → 73.8% val accuracy
+- 4/5 sanity checks OK (model learns, underfits — train acc < val acc)
+
+**Stage 2 — Local RTX 5050 Laptop (8GB) via WSL2 — the production model:**
+
+- Verified via current official sources: TF native Windows GPU is dead after
+  2.10; **WSL2 is the supported path** (earlier claim about native 2.20+ GPU
+  was wrong — corrected in docs)
+- WSL2 Ubuntu + TF 2.21 + pip CUDA 12.9 packages
+- GPU bring-up fixes:
+  - `cudnn .so.9` symlinks (official fix)
+  - `LD_LIBRARY_PATH` for all `nvidia/*/lib` pip dirs (dlopen discovery)
+- `nvidia-smi` in WSL confirmed driver path healthy (driver 610, CUDA UMD 13.3)
+- **MobileNetV3Small transfer learning**, FULL dataset (387 MB), 20 epochs,
+  `EarlyStopping(patience=4)`
+- **RESULT: 95.1% validation accuracy**
+- **5/5 sanity OK** across: tomato early blight, target spot, late blight,
+  bacterial spot, septoria
+- `class_names.json` exported **from** `train_ds.class_names` in the same
+  script → label misalignment structurally impossible
+
+---
+
+### Terminology Locked for Viva
+
+- System is a **single-label image CLASSIFIER** (MobileNetV3, TFLite), NOT
+  YOLO/object detection
+- Output: `[1, 16]` softmax vector
+- Demo workflow: waypoint positions the leaf → classify → log
+- Examiner Q&A prepared: "Detection considered, classification chosen because
+  inspection stations isolate the leaf; continuous detection (YOLOv8n + edge
+  accelerator) is Stage-2 future work"
+
+---
+
+### Vision Framing (for Report)
+
+Station-based inspection presented as **deliberate design:** stable framing
+supports classifier accuracy; Pi 5 compute favors short high-quality
+inferences.
+
+Farmer-facing value chain: patrol row → inspect at stations → log positions
+to dashboard.
+
+Optional stretch: "patrol mode" (1 Hz classify while creeping 0.15 m/s, log
+diseased detections with pose) — ~30 lines, existing components.
+
+---
+
+### Pending (Next Session)
+
+1. **Deploy new model** — scp `plant_health.tflite` + `class_names.json` to
+   Pi, backup old, reboot, single bringup
+2. **8-print score test** — expect 7–8/8; decides print-quality question
+3. **Straight run** with new EKF config (IMU absolute-yaw fusion off) +
+   `min_pwm=0.25` → paste WP lines
+4. **Box test** → commit + push
+
+---
+
+### Bugs / Knowledge Recorded
+
+| Issue | Lesson |
+|-------|--------|
+| TF + pip CUDA in WSL2: "Cannot dlopen some GPU libraries" | cudnn symlink fix first; if persists, add all `nvidia/*/lib` dirs to `LD_LIBRARY_PATH` |
+| file.io one-time links expire if opened in browser before `wget` | HTML error page saved as `.jpg` — verify with `file` command |
+| `scp` on Windows with placeholders | `C:\path\...` breaks parsing; use real paths or Tab completion; spaces need quotes |
+
+**Suggested commit message:**
+`"Root-cause AI chapter: degenerate model replaced via MobileNetV3 transfer learning (95.1% val, RTX 5050/WSL2); pipeline unchanged"`
+
+---
+
 ## 10/11/2026 — THREE ROOT CAUSES FOUND: Navigation / Ultrasonic / Camera
 
 ### Overview
