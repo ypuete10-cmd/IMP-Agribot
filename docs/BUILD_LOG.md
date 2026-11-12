@@ -98,9 +98,6 @@ diseased detections with pose) — ~30 lines, existing components.
 | file.io one-time links expire if opened in browser before `wget` | HTML error page saved as `.jpg` — verify with `file` command |
 | `scp` on Windows with placeholders | `C:\path\...` breaks parsing; use real paths or Tab completion; spaces need quotes |
 
-**Suggested commit message:**
-`"Root-cause AI chapter: degenerate model replaced via MobileNetV3 transfer learning (95.1% val, RTX 5050/WSL2); pipeline unchanged"`
-
 ---
 
 ## 10/11/2026 — THREE ROOT CAUSES FOUND: Navigation / Ultrasonic / Camera
