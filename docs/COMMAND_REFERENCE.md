@@ -402,7 +402,7 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | One-command bringup (10 processes) | Working |
 | QoS fix (/cmd_vel compatibility) | Working |
 | Watchdog latch fix | Working |
-| Camera lag reduction | Pending |
+| Camera lag | **RESOLVED** (proxy auto-reconnect, 3 Nov) |
 | ADS1115 battery monitor | Pending |
 | Field-test waypoint accuracy | Pending |
 | Report + slides | Pending |
@@ -462,7 +462,9 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 ### Known Issues
 
 1. **Debug logging is verbose** — WP/CMD spam in terminal. Remove before demo.
-2. **Camera lag** — 1080p @ 30 fps overloads Pi. Next: 640×480 @ 15 fps.
+2. **Camera lag — RESOLVED (3 Nov)** — Camera proxy auto-reconnect
+   (`while True` + `try/except`) eliminates stream death. 1080p @ 30 fps
+   stable. Resolution reduction no longer needed.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal; remount before outdoor demo
 5. **GPS no fix indoors** — expected; navsat transform ready for outdoor
@@ -477,7 +479,7 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 | Priority | Task |
 |----------|------|
 | 1 | Multi-waypoint mission with scan at each |
-| 2 | Camera lag reduction (640×480 @ 15 fps) |
+| 2 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) | — |
 | 3 | Remove debug logging |
 | 4 | Tune arrival tolerance (15→20 cm if needed) |
 | 5 | Field-test waypoint accuracy on actual floor |
