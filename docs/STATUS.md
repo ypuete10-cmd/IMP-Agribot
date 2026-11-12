@@ -140,8 +140,8 @@ robot_control/
 | 2 | 8-print score test (expect 7–8/8) | Nov |
 | 3 | Straight run + box test with new EKF + min_pwm 0.25 | Nov |
 | 4 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
-| 5 | Camera lag reduction (640×480 @ 15 fps) | Nov |
-| 6 | Remove debug logging (reduce log spam) | Nov |
+| 5 | Remove debug logging (reduce log spam) | Nov |
+| 6 | Camera lag — **RESOLVED** (proxy auto-reconnect 3 Nov) | — |
 | 7 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
 | 8 | Field-test waypoint accuracy on actual floor | Nov |
 | 9 | ADS1115 battery monitor (when LiPo returns) | Nov |
@@ -218,8 +218,9 @@ robot_control/
 
 1. **Debug logging is verbose** — real-time WP/CMD logs and watchdog state
    spam the terminal. Remove or reduce before demo day.
-2. **Camera lag** — 1080p @ 30 fps may overload Pi CPU. Next: drop to
-   640×480 @ 15 fps + JPEG quality 70 in `camera_stream.py`.
+2. **Camera lag — RESOLVED (3 Nov)** — Camera proxy auto-reconnect
+   (`while True` + `try/except` retry every 1s) eliminated stream death.
+   1080p @ 30 fps stable. Resolution reduction no longer needed.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure. Documented
    limitation; EKF helps but does not eliminate accumulated drift.
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal. Must remount flat
@@ -230,8 +231,9 @@ robot_control/
    Use printed photos or real leaves for demo.
 7. **Arrival tolerance** — currently 15 cm; may need 20 cm for reliability
    on actual floor surfaces.
-8. **Camera proxy ChunkedEncodingError** — restarting bringup breaks Flask
-   camera stream. Fix: restart dashboard + browser refresh after bringup.
+8. **Camera proxy ChunkedEncodingError — RESOLVED (3 Nov)** — Auto-reconnect
+   in `gen()` retries connection to `camera_stream` every 1s instead of
+   crashing. Dashboard no longer needs restart after bringup.
 9. **Turning power on carpet** — may need PWM increase for carpet surfaces.
    Current values tuned for smooth lab floor.
 10. **Soft-object ultrasonic detection** — bags/fabric absorb ultrasound.
