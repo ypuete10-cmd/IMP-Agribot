@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 10 November 2026 · Viva: 2 December 2026
+Last updated: 12 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -119,21 +119,35 @@ robot_control/
 25. **Diagnostic tooling (10 Nov)** — `yaw_check.py` (odom vs filtered yaw),
     `test_ultrasonic.py` (standalone HC-SR04 tester), follower 10Hz WP/CMD
     debug logging.
+26. **AI model root cause identified (12 Nov)** — Original model degenerate
+    (undertrained/broken at export). Ruled out preprocessing, label
+    permutation, and camera issues via systematic testing. Retraining confirmed
+    as only correct fix.
+27. **AI model retrained (12 Nov)** — MobileNetV3Small transfer learning on
+    FULL dataset via RTX 5050/WSL2. **95.1% validation accuracy**, 5/5 sanity
+    checks passed. `class_names.json` exported from `train_ds.class_names` in
+    same script → label misalignment structurally impossible.
+28. **Viva terminology locked (12 Nov)** — Single-label image classifier
+    (not YOLO/object detection). Station-based inspection presented as
+    deliberate design. Examiner Q&A prepared for detection-vs-classification
+    question.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
-| 2 | Camera lag reduction (640×480 @ 15 fps) | Nov |
-| 3 | Remove debug logging (reduce log spam) | Nov |
-| 4 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
-| 5 | Field-test waypoint accuracy on actual floor | Nov |
-| 6 | Turning power increase for carpet surfaces | Nov |
-| 7 | ADS1115 battery monitor (when LiPo returns) | Nov |
-| 8 | Report writing + documentation | Nov–Dec |
-| 9 | Viva presentation slides | 30 Nov |
-| 10 | Final demo / viva | **2 Dec 2026** |
+| 1 | Deploy new AI model to Pi (scp + backup + reboot) | Nov |
+| 2 | 8-print score test (expect 7–8/8) | Nov |
+| 3 | Straight run + box test with new EKF + min_pwm 0.25 | Nov |
+| 4 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
+| 5 | Camera lag reduction (640×480 @ 15 fps) | Nov |
+| 6 | Remove debug logging (reduce log spam) | Nov |
+| 7 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
+| 8 | Field-test waypoint accuracy on actual floor | Nov |
+| 9 | ADS1115 battery monitor (when LiPo returns) | Nov |
+| 10 | Report writing + documentation | Nov–Dec |
+| 11 | Viva presentation slides | 30 Nov |
+| 12 | Final demo / viva | **2 Dec 2026** |
 
 ## Hardware Status
 
@@ -225,8 +239,13 @@ robot_control/
     obstacles (walls, boxes) detected reliably after 5V power fix.
 11. **PlantVillage domain gap** — prints/photos-of-photos degrade AI accuracy.
     Screen-displayed dataset images expected to classify correctly.
+    **Mitigated (12 Nov):** New model retrained at 95.1% val; 8-print test
+    pending to quantify print-quality impact.
 12. **Encoder drift at standstill** — minor drift during long obstacle holds.
     Mitigated by short holds; documented limitation for report.
+13. **Old AI model degenerate** — original model undertrained/broken at export,
+    never verified with real images. **FIXED (12 Nov):** Replaced with
+    MobileNetV3Small transfer learning (95.1% val, RTX 5050/WSL2).
 
 ## Critical Path
 
@@ -238,7 +257,8 @@ robot_control/
 [COMPLETED] Working autonomous navigation + AI scan (29 Oct 2026)
 [COMPLETED] Manual AI Scan mode + normalization fix (2 Nov 2026)
 [COMPLETED] Three root causes fixed: min_pwm 0.25, EKF IMU-yaw removal, ultrasonic 5V (10 Nov 2026)
-[ACTIVE]    Verification sequence (straight run → box test → AI screen test)
+[COMPLETED] AI model root cause identified + retrained at 95.1% val (12 Nov 2026)
+[ACTIVE]    Deploy new model → 8-print test → straight run + box test
 [UPCOMING]  Multi-waypoint mission → Camera lag fix → Field test → Report → Slides → Viva (2 Dec 2026)
 ```
 
