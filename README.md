@@ -8,6 +8,22 @@ navigation with emergency stop hardening, **AI scan at each waypoint**
 (event-driven scanner + scan handshake), and results displayed on a unified
 farmer-facing Mission Control dashboard.
 
+**MAJOR MILESTONE (29 Oct 2026):** End-to-end autonomous navigation + AI scan
+integration VERIFIED — robot drives, arrives, scans, and resumes autonomously.
+
+**UPDATE (2 Nov 2026):** Manual AI Scan Mode added — on-demand classification
+from dashboard without waypoint setup.
+
+**UPDATE (10 Nov 2026):** Three root causes fixed — motor PWM floor reduced
+(0.4→0.25), EKF IMU absolute yaw disabled (encoders own yaw), ultrasonic
+sensors moved to 5V power (was 3.3V).
+
+**UPDATE (12 Nov 2026):** AI model retrained at 95.1% val (RTX 5050/WSL2).
+
+**UPDATE (14 Nov 2026):** AI pipeline FIXED end-to-end — double-preprocessing
+bug squashed. Feed `[0, 255]` float; model's internal `preprocess_input` handles
+normalization. Direct tests: 4/4 correct at 99–100%.
+
 ---
 
 ## Hardware
@@ -48,7 +64,11 @@ farmer-facing Mission Control dashboard.
 - `ultrasonic_node` — 2× HC-SR04 front sensors, debounced emergency stop
 - `ai_inference` — **event-driven TFLite scanner**: triggers on `/waypoint/reached` (autonomous) or `/ai/scan_trigger` (manual), classifies shared frame with MobileNetV3 normalization (img/127.5-1.0), publishes `/plant_health` + `/waypoint/scan_done`
 - **AI pipeline** — PlantVillage → 16-class subset (15 diseases + Other) →
-MobileNetV3-Small transfer learning → TFLite float16 (~90.1% val accuracy)
+  MobileNetV3-Small transfer learning → TFLite float16 (**95.1% val accuracy**,
+  retrained 12 Nov 2026 on RTX 5050/WSL2 with FULL dataset). **Fixed 14 Nov:**
+  feed `[0, 255]` float — model's baked-in `preprocess_input` handles
+  normalization. Double-preprocessing bug (pipeline `[-1,1]` + model internal)
+  squashed.
 - **Mission Control dashboard** (Flask, port 8080) — unified page with live
 sensor cards (GPS, odom, heading, environment, AI scan), embedded camera +
 drive pad, **keyboard WASD/arrow control**, **waypoint Save/Run/Stop buttons**,
@@ -167,8 +187,8 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 
 | Metric | Value |
 | --- | --- |
-| AI model | MobileNetV3-Small, 16 classes |
-| Validation accuracy | 90.1% |
+| AI model | MobileNetV3-Small, 16 classes (retrained 12 Nov 2026, RTX 5050/WSL2) |
+| Validation accuracy | **95.1%** |
 | Inference speed | 3.5 ms/frame (282 FPS) |
 | Platform | Raspberry Pi 5, Ubuntu 24.04 |
 | ROS2 distro | Jazzy Jalisco |
@@ -186,7 +206,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | AI trigger (manual) | On-demand via `/ai/scan_trigger` (dashboard button) |
 | Scan handshake | `/waypoint/reached` → classify → `/waypoint/scan_done` → resume |
 | Frame sharing | `/tmp/latest_frame.jpg` (avoids camera contention) |
-| AI preprocessing | MobileNetV3: img / 127.5 - 1.0 (normalized [-1, 1]) |
+| AI preprocessing | Feed `[0, 255]` float — model's baked-in `preprocess_input` handles normalization (was `[-1, 1]` manual, caused double-preprocessing bug) |
 | Results log | Atomic JSON write to `dashboard/data/results.json` |
 | Dashboard | Flask + roslib.js + Leaflet + OpenStreetMap |
 | Web drive | rosbridge WebSocket, /cmd_vel at 10 Hz |
@@ -219,9 +239,9 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Camera lag resolved (proxy auto-reconnect) | 3 Nov 2026 |
 | Three root causes fixed (PWM, EKF yaw, ultrasonic 5V) | 10 Nov 2026 |
 | AI model retrained at 95.1% val (RTX 5050/WSL2) | 12 Nov 2026 |
-| Deploy new model + 8-print test + straight run + box test | *Next* |
+| **AI pipeline fixed end-to-end (double-preprocessing bug)** | **14 Nov 2026** |
+| Straight run + box test + dress rehearsal | *Next* |
 | Multi-waypoint mission with plant photos | *Next* |
-| Camera lag reduction | *Next* |
 | Field-test waypoint accuracy | *Next* |
 | ADS1115 battery monitor | *Next* |
 | **Report due** | 25 Nov 2026 |
