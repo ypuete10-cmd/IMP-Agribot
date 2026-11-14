@@ -103,7 +103,7 @@ class AiInference(Node):
                                '(is camera_stream running?)')
         img = cv2.resize(frame, (224, 224))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32) / 127.5 - 1.0  # MobileNetV3: normalize to [-1, 1]
+        img = img.astype(np.float32)   # model includes preprocess_input; feed [0,255]
         img = np.expand_dims(img, 0)
         self.interp.set_tensor(self.inp['index'], img)
         self.interp.invoke()
