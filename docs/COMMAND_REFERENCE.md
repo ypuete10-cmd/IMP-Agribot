@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 12 November 2026
+Yvette Lee EnQi (25034155) · Last updated: 14 November 2026
 
 ---
 
@@ -30,6 +30,7 @@ Yvette Lee EnQi (25034155) · Last updated: 12 November 2026
 22. [Manual AI Scan Mode (2 Nov)](#22-manual-ai-scan-mode-2-nov)
 23. [Three Root Causes Fixed (10 Nov)](#23-three-root-causes-fixed-10-nov)
 24. [AI Root Cause Closed — Model Retrained (12 Nov)](#24-ai-root-cause-closed--model-retrained-12-nov)
+25. [AI Pipeline Fixed End-to-End (14 Nov)](#25-ai-pipeline-fixed-end-to-end-14-nov)
 
 ---
 
@@ -403,6 +404,8 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | QoS fix (/cmd_vel compatibility) | Working |
 | Watchdog latch fix | Working |
 | Camera lag | **RESOLVED** (proxy auto-reconnect, 3 Nov) |
+| AI double-preprocessing | **RESOLVED** (feed [0,255], 14 Nov) |
+| AI pipeline end-to-end | **VERIFIED** (4/4 direct + print scans, 14 Nov) |
 | ADS1115 battery monitor | Pending |
 | Field-test waypoint accuracy | Pending |
 | Report + slides | Pending |
@@ -478,13 +481,13 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 
 | Priority | Task |
 |----------|------|
-| 1 | Multi-waypoint mission with scan at each |
-| 2 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) | — |
-| 3 | Remove debug logging |
-| 4 | Tune arrival tolerance (15→20 cm if needed) |
-| 5 | Field-test waypoint accuracy on actual floor |
-| 6 | Turning power increase for carpet |
-| 7 | ADS1115 battery monitor (when LiPo returns) |
+| 1 | Straight run + box test + dress rehearsal |
+| 2 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) |
+| 3 | AI double-preprocessing — **RESOLVED** (feed [0,255], 14 Nov) |
+| 4 | Remove debug logging |
+| 5 | Tune arrival tolerance (15→20 cm if needed) |
+| 6 | Field-test waypoint accuracy on actual floor |
+| 7 | ADS1115 battery monitor (optional / Future Work) |
 | 8 | Report writing + documentation |
 | 9 | Slides (due 30 Nov) |
 | 10 | Viva (2 Dec 2026) |
@@ -1043,9 +1046,121 @@ Optional stretch: "patrol mode" (1 Hz classify while creeping 0.15 m/s) —
 
 ### Next Steps
 
-1. Deploy new model to Pi (scp + backup + reboot)
-2. 8-print score test (expect 7–8/8)
-3. Straight run + box test with new EKF + min_pwm 0.25
+1. Straight run verification (EKF IMU-yaw-off + min_pwm 0.25)
+2. Box test (hysteresis pause/hold)
+3. Dress rehearsal: 2-waypoint mission with scans at each stop
+
+---
+
+## 25. AI Pipeline Fixed End-to-End (14 Nov)
+
+### The Final AI Bug
+
+**Symptom:** New 95.1% model deployed and hash-verified (md5 match Pi ↔
+laptop), yet **EVERY input still classified as Tomato___Late_blight** at high
+confidence.
+
+### Diagnosis Chain
+
+| Step | Test | Result |
+|------|------|--------|
+| 1 | `lsof` on running `ai_inference` | NEW 3.7 MB model held open — file loaded correctly |
+| 2 | Direct test (`~/test_model.py`) on t1–t4 | All Tomato___Late_blight → reproducible without camera/prints |
+| 3 | Class counts check | Imbalance real but cannot explain **constant** output |
+| 4 | **ROOT CAUSE found** | Model bakes `preprocess_input` INTO graph; pipeline ALSO normalizes to `[-1, 1]` |
+
+### Root Cause Explained
+
+The retrained model exports `x = preprocess_input(inputs)` **into the TFLite
+graph**. The pipeline (3 Nov edit) also normalized to `[-1, 1]` manually:
+
+```python
+# BROKEN — double preprocessing (14 Nov)
+img = img.astype(np.float32)
+img = img / 127.5 - 1.0          # Manual normalization ← WRONG
+input_data = np.expand_dims(img, axis=0)
+# Model THEN applies preprocess_input AGAIN internally → constant black
+```
+
+Pixels were double-scaled to ≈ `-1.0` → model receives constant black image
+→ outputs dominant class (Tomato___Late_blight).
+
+**Jupyter worked** because it fed `[0, 255]` — `preprocess_input` applied
+exactly once.
+
+### Fix
+
+```python
+# FIXED — feed [0, 255], let model handle normalization
+img = img.astype(np.float32)     # Only convert to float
+# NO manual normalization — model's internal preprocess does the rest
+input_data = np.expand_dims(img, axis=0)
+```
+
+Files changed:
+- `ai_inference.py` — `classify()` feeds `[0, 255]` float
+- `test_model.py` — same fix for standalone testing
+
+### Verification Results
+
+**Direct file tests (original dataset images):**
+
+| Image | Expected | Result | Confidence |
+|-------|----------|--------|------------|
+| t1 | tomato healthy | ✓ correct | 99–100% |
+| t2 | pepper healthy | ✓ correct | 99–100% |
+| t3 | potato healthy | ✓ correct | 99–100% |
+| t4 | potato early blight | ✓ correct | 99–100% |
+
+**Pepper bacterial spot original:** 100%
+
+**Camera print scans (8-card set):**
+
+| Class | Reliability | Notes |
+|-------|-------------|-------|
+| Potato healthy | 98% | Reliable |
+| Pepper healthy | 96.5% | Reliable |
+| Potato early blight | 67–98% | Reliable |
+| Tomato early blight | 95–100% | Reliable |
+| Potato late blight | 90–100% | Reliable |
+| Tomato healthy | Hit-or-miss | Healthy/diseased boundary |
+| Pepper bacterial spot | Hit-or-miss | Subtle spots lost in print reproduction |
+
+> **Domain-gap note:** "Subtle spots lost in print reproduction" is a
+> documented limitation for the report — not a model bug.
+
+### Terminal vs Dashboard Output Explained
+
+- **Terminal (live):** Shows top-3 probabilities from `ai_inference.py` debug
+- **Dashboard (logged):** Thresholded — `<60%` confidence → `unknown_no_plant`
+
+### Ops Incidents
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Frozen camera frame after relaunch | `/tmp/latest_frame.jpg` stale | Full restart before scan sessions |
+| `/tmp` wiped on reboot | tmpfs behavior | Re-`scp` test images after restarts |
+
+### Pre-Session Checklist
+
+```bash
+# 1. Verify camera freshness
+ls -la /tmp/latest_frame.jpg          # should update every frame
+
+# 2. Verify model hash
+md5sum ~/ros2_ws/src/robot_control/models/plant_health.tflite
+
+# 3. Quick model test (no ROS, no camera)
+python3 ~/test_model.py t1.jpg t2.jpg t3.jpg t4.jpg
+```
+
+### Files
+
+| File | Change |
+|------|--------|
+| `ai_inference.py` | Feed `[0, 255]` float — remove double preprocessing |
+| `test_model.py` | Same fix for standalone testing |
+| `plant_health.tflite.bak` | Old degenerate model backed up for report |
 
 ---
 
