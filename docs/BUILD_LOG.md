@@ -4,6 +4,107 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 14/11/2026 — AI PIPELINE FIXED END-TO-END — Double-Preprocessing Bug Squashed
+
+### The Final AI Bug (After Model Fixed Yesterday)
+
+**Symptom:** New 95.1% model deployed and hash-verified (md5 match Pi ↔
+laptop), yet **EVERY input still classified as Tomato___Late_blight** at high
+confidence.
+
+**Diagnosis chain:**
+
+1. `lsof` confirmed: running `ai_inference` held the NEW 3.7 MB model open —
+   file was loaded correctly
+2. Direct test (`~/test_model.py`) on original dataset images t1–t4
+   (tomato healthy, pepper healthy, potato healthy, potato early blight) →
+   all Tomato___Late_blight → problem reproducible **without camera/prints**
+3. Class counts checked: dataset imbalance real (Potato___healthy: 161 imgs
+   vs 5000+ for dominant classes) but could not explain **constant** output
+4. **ROOT CAUSE:** The retrained model bakes `preprocess_input` **INTO the
+   TFLite graph** (`x = preprocess_input(inputs)` exported to TFLite), while
+   our pipeline ALSO normalized to `[-1, 1]` (edit from 3 Nov) → pixels
+   **double-scaled** to ≈ `-1.0` → model receives constant black image →
+   dominant-class output. Jupyter worked because it fed `[0, 255]`
+   (preprocess applied exactly once).
+
+**Fix:** Feed `[0, 255]` float (no manual normalization) in
+`ai_inference.py` `classify()` and `test_model.py` — model's internal
+`preprocess_input` does the rest.
+
+---
+
+### Verification
+
+**Direct file tests after fix:** 4/4 correct at 99–100%
+- tomato healthy ✓
+- pepper healthy ✓
+- potato healthy ✓
+- potato early blight ✓
+
+**Pepper bacterial spot original:** 100% — model knows every class.
+
+**Camera print scans (8-card set):**
+
+| Class | Result | Notes |
+|-------|--------|-------|
+| Potato healthy | 98% | Reliable |
+| Pepper healthy | 96.5% | Reliable |
+| Potato early blight | 67–98% | Reliable |
+| Tomato early blight | 95–100% | Reliable |
+| Potato late blight | 90–100% | Reliable |
+| Tomato healthy | hit-or-miss | Healthy/diseased boundary |
+| Pepper bacterial spot | hit-or-miss | Subtle spots lost in print reproduction |
+
+> **Domain-gap note:** "Subtle spots lost in print reproduction" is a
+> documented limitation for the report — not a model bug.
+
+### Video Demo
+
+**End-to-end AI pipeline demo — print scan classification in real time:**
+
+[AI pipeline demo — print scan classification](https://youtu.be/SkqaUM2IZ9Q)
+
+**Terminal vs dashboard explained:**
+- Live top-3 debug shows actual probabilities in terminal
+- Thresholded logging in dashboard: `<60%` confidence → logged as
+  `unknown_no_plant`
+
+---
+
+### Ops Incidents Resolved
+
+**Frozen camera frame after relaunch:**
+- `/tmp/latest_frame.jpg` stale → constant 100% "Early blight" regardless of
+  card
+- Fixed by full restart
+- **Camera freshness now a checklist item before scan sessions**
+
+**`/tmp` wiped on reboot:**
+- Test images must be re-`scp`'d after restarts
+
+---
+
+### Committed
+
+- `ai_inference.py` + `test_model.py`: feed `[0, 255]` (remove double
+  preprocessing)
+- Dashboard screenshots + scan logs = Results chapter evidence
+- Old degenerate model backed up (`plant_health.tflite.bak`) for the report
+
+---
+
+### Remaining (Post-Draft)
+
+1. **Straight run verification** — EKF IMU-yaw-off config + min_pwm 0.25
+   (already staged)
+2. **Box test** — hysteresis pause/hold verification
+3. **Dress rehearsal** — 2-waypoint mission with scans at each stop
+4. **Battery wiring** — optional; Future Work bullet if time runs out
+
+
+---
+
 ## 12/11/2026 — AI ROOT CAUSE CLOSED — Model Retrained at 95.1%
 
 ### The Final AI Diagnosis (Multi-Day Investigation Concluded)
@@ -97,6 +198,9 @@ diseased detections with pose) — ~30 lines, existing components.
 | TF + pip CUDA in WSL2: "Cannot dlopen some GPU libraries" | cudnn symlink fix first; if persists, add all `nvidia/*/lib` dirs to `LD_LIBRARY_PATH` |
 | file.io one-time links expire if opened in browser before `wget` | HTML error page saved as `.jpg` — verify with `file` command |
 | `scp` on Windows with placeholders | `C:\path\...` breaks parsing; use real paths or Tab completion; spaces need quotes |
+
+**Suggested commit message:**
+`"Root-cause AI chapter: degenerate model replaced via MobileNetV3 transfer learning (95.1% val, RTX 5050/WSL2); pipeline unchanged"`
 
 ---
 
@@ -411,8 +515,6 @@ Results Table with class names and confidence scores:**
 3. Wait 1–2 seconds for "Scanning..." → "Done"
 4. Check **AI Last Scan** card and **Results Table**
 
-**Suggested commit message:**
-`"Add Manual AI Scan mode with live status indicator and Clear Log button"`
 
 ---
 
