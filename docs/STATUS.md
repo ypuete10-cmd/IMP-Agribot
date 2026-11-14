@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 12 November 2026 · Viva: 2 December 2026
+Last updated: 14 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -13,7 +13,8 @@ robot_control/
 │   ├── motor_driver.py          # PWM diff-drive + e-stop + watchdog latch + min_pwm=0.25
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
-│   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + normalization fix (waypoint-triggered)
+│   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + [0,255] feed
+│   ├── test_model.py              # Standalone model tester (no ROS, no camera) (waypoint-triggered)
 │   ├── encoder_node.py          # 4-wheel encoders + odometry + TF
 │   ├── imu_node.py              # BNO055 I2C IMU, publishes /imu/data
 │   ├── gps_node.py              # NEO-8M UART GPS, publishes /fix
@@ -131,20 +132,29 @@ robot_control/
     (not YOLO/object detection). Station-based inspection presented as
     deliberate design. Examiner Q&A prepared for detection-vs-classification
     question.
+29. **AI double-preprocessing bug fixed (14 Nov)** — Retrained model bakes
+    `preprocess_input` INTO the TFLite graph; pipeline was ALSO normalizing
+    to `[-1, 1]` → pixels double-scaled to constant black. Fixed by feeding
+    `[0, 255]` float and letting model handle normalization. Direct tests:
+    4/4 correct at 99–100%. Print scans: 5/7 reliable, 2 hit-or-miss
+    (documented domain-gap limitation).
+30. **AI pipeline end-to-end verified (14 Nov)** — Model deployed,
+    hash-verified, camera print scans classify correctly. Dashboard
+    screenshots + scan logs captured for Results chapter.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | Deploy new AI model to Pi (scp + backup + reboot) | Nov |
-| 2 | 8-print score test (expect 7–8/8) | Nov |
-| 3 | Straight run + box test with new EKF + min_pwm 0.25 | Nov |
-| 4 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
-| 5 | Remove debug logging (reduce log spam) | Nov |
+| 1 | Straight run verification (EKF IMU-yaw-off + min_pwm 0.25) | Nov |
+| 2 | Box test (hysteresis pause/hold verification) | Nov |
+| 3 | Dress rehearsal: 2-waypoint mission with scans at each stop | Nov |
+| 4 | Remove debug logging (reduce log spam) | Nov |
+| 5 | Multi-waypoint mission refinement | Nov |
 | 6 | Camera lag — **RESOLVED** (proxy auto-reconnect 3 Nov) | — |
 | 7 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
 | 8 | Field-test waypoint accuracy on actual floor | Nov |
-| 9 | ADS1115 battery monitor (when LiPo returns) | Nov |
+| 9 | ADS1115 battery monitor (when LiPo returns) — optional / Future Work | Nov |
 | 10 | Report writing + documentation | Nov–Dec |
 | 11 | Viva presentation slides | 30 Nov |
 | 12 | Final demo / viva | **2 Dec 2026** |
@@ -248,6 +258,13 @@ robot_control/
 13. **Old AI model degenerate** — original model undertrained/broken at export,
     never verified with real images. **FIXED (12 Nov):** Replaced with
     MobileNetV3Small transfer learning (95.1% val, RTX 5050/WSL2).
+14. **AI double-preprocessing** — retrained model bakes `preprocess_input`
+    into TFLite graph; pipeline also normalized to `[-1, 1]` → constant black
+    input. **FIXED (14 Nov):** Feed `[0, 255]` float, let model handle
+    normalization. Direct tests: 4/4 correct at 99–100%.
+15. **Camera frame staleness** — `/tmp/latest_frame.jpg` can be stale after
+    relaunch → constant wrong classification. **Mitigation:** Full restart
+    before scan sessions; camera freshness = pre-session checklist item.
 
 ## Critical Path
 
@@ -260,8 +277,9 @@ robot_control/
 [COMPLETED] Manual AI Scan mode + normalization fix (2 Nov 2026)
 [COMPLETED] Three root causes fixed: min_pwm 0.25, EKF IMU-yaw removal, ultrasonic 5V (10 Nov 2026)
 [COMPLETED] AI model root cause identified + retrained at 95.1% val (12 Nov 2026)
-[ACTIVE]    Deploy new model → 8-print test → straight run + box test
-[UPCOMING]  Multi-waypoint mission → Camera lag fix → Field test → Report → Slides → Viva (2 Dec 2026)
+[COMPLETED] AI double-preprocessing bug fixed + pipeline end-to-end verified (14 Nov 2026)
+[ACTIVE]    Straight run → Box test → Dress rehearsal (2-waypoint mission)
+[UPCOMING]  Report → Slides → Viva (2 Dec 2026)
 ```
 
 ## Quick Commands
