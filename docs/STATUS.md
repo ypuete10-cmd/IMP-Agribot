@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 2 November 2026 · Viva: 2 December 2026
+Last updated: 12 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 2 November 2026 · Viva: 2 December 2026
 ```
 robot_control/
 ├── robot_control/
-│   ├── motor_driver.py          # PWM differential drive + emergency cut-off + watchdog latch
+│   ├── motor_driver.py          # PWM diff-drive + e-stop + watchdog latch + min_pwm=0.25
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
 │   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + normalization fix (waypoint-triggered)
@@ -99,21 +99,55 @@ robot_control/
 20. **AI normalization fix** — MobileNetV3 preprocessing corrected from raw
     uint8 `[0, 255]` to normalized `[-1, 1]` (`img / 127.5 - 1.0`). Added
     class-probability debug logging for accuracy tuning.
+21. **Motor PWM floor fix (10 Nov)** — `min_pwm` reduced from 0.4 → **0.25**.
+    Previous 0.4 forced every nonzero motor command to ≥40% duty, causing
+    overshoot, oscillation, and asymmetric arcs during turns. EKF was correct —
+    the robot physically moved 4–7× faster than commanded.
+22. **EKF IMU yaw fusion fix (10 Nov)** — `ekf.yaml` changed: IMU absolute yaw
+    (magnetometer-derived, corrupted by motor-wire magnetic interference)
+    **disabled**. Encoders now own yaw (self-consistent with position); IMU
+    contributes yaw rate only. Fixed robot driving away from waypoint while
+    `yaw_err ≈ 0`.
+23. **Ultrasonic 5V power fix (10 Nov)** — HC-SR04 VCC moved from 3.3V rail to
+    **Pi 5V Pin 2** (echo dividers retained). Previous 3.3V supply starved the
+    transmitter → weeks of phantom obstacles and garbage readings. Added
+    `>3.0 m` artifact filter to kill timeout-boundary junk (`804 cm`).
+24. **Dashboard v2 rewrite (10 Nov)** — Full `index.html` rewrite: Nav Debug
+    card (live pos, yaw, dist, yaw_err), live waypoint count via `/api/waypoints`,
+    Scan Plant + Clear Log buttons, throttled subscriptions (IMU 10Hz, odom 4Hz,
+    env 2Hz) to stop rosbridge queue overflow.
+25. **Diagnostic tooling (10 Nov)** — `yaw_check.py` (odom vs filtered yaw),
+    `test_ultrasonic.py` (standalone HC-SR04 tester), follower 10Hz WP/CMD
+    debug logging.
+26. **AI model root cause identified (12 Nov)** — Original model degenerate
+    (undertrained/broken at export). Ruled out preprocessing, label
+    permutation, and camera issues via systematic testing. Retraining confirmed
+    as only correct fix.
+27. **AI model retrained (12 Nov)** — MobileNetV3Small transfer learning on
+    FULL dataset via RTX 5050/WSL2. **95.1% validation accuracy**, 5/5 sanity
+    checks passed. `class_names.json` exported from `train_ds.class_names` in
+    same script → label misalignment structurally impossible.
+28. **Viva terminology locked (12 Nov)** — Single-label image classifier
+    (not YOLO/object detection). Station-based inspection presented as
+    deliberate design. Examiner Q&A prepared for detection-vs-classification
+    question.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
-| 2 | Camera lag reduction (640×480 @ 15 fps) | Nov |
-| 3 | Remove debug logging (reduce log spam) | Nov |
-| 4 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
-| 5 | Field-test waypoint accuracy on actual floor | Nov |
-| 6 | Turning power increase for carpet surfaces | Nov |
-| 7 | ADS1115 battery monitor (when LiPo returns) | Nov |
-| 8 | Report writing + documentation | Nov–Dec |
-| 9 | Viva presentation slides | 30 Nov |
-| 10 | Final demo / viva | **2 Dec 2026** |
+| 1 | Deploy new AI model to Pi (scp + backup + reboot) | Nov |
+| 2 | 8-print score test (expect 7–8/8) | Nov |
+| 3 | Straight run + box test with new EKF + min_pwm 0.25 | Nov |
+| 4 | Multi-waypoint mission (2+ waypoints with scan at each) | Nov |
+| 5 | Remove debug logging (reduce log spam) | Nov |
+| 6 | Camera lag — **RESOLVED** (proxy auto-reconnect 3 Nov) | — |
+| 7 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
+| 8 | Field-test waypoint accuracy on actual floor | Nov |
+| 9 | ADS1115 battery monitor (when LiPo returns) | Nov |
+| 10 | Report writing + documentation | Nov–Dec |
+| 11 | Viva presentation slides | 30 Nov |
+| 12 | Final demo / viva | **2 Dec 2026** |
 
 ## Hardware Status
 
@@ -184,8 +218,9 @@ robot_control/
 
 1. **Debug logging is verbose** — real-time WP/CMD logs and watchdog state
    spam the terminal. Remove or reduce before demo day.
-2. **Camera lag** — 1080p @ 30 fps may overload Pi CPU. Next: drop to
-   640×480 @ 15 fps + JPEG quality 70 in `camera_stream.py`.
+2. **Camera lag — RESOLVED (3 Nov)** — Camera proxy auto-reconnect
+   (`while True` + `try/except` retry every 1s) eliminated stream death.
+   1080p @ 30 fps stable. Resolution reduction no longer needed.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure. Documented
    limitation; EKF helps but does not eliminate accumulated drift.
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal. Must remount flat
@@ -196,10 +231,23 @@ robot_control/
    Use printed photos or real leaves for demo.
 7. **Arrival tolerance** — currently 15 cm; may need 20 cm for reliability
    on actual floor surfaces.
-8. **Camera proxy ChunkedEncodingError** — restarting bringup breaks Flask
-   camera stream. Fix: restart dashboard + browser refresh after bringup.
+8. **Camera proxy ChunkedEncodingError — RESOLVED (3 Nov)** — Auto-reconnect
+   in `gen()` retries connection to `camera_stream` every 1s instead of
+   crashing. Dashboard no longer needs restart after bringup.
 9. **Turning power on carpet** — may need PWM increase for carpet surfaces.
    Current values tuned for smooth lab floor.
+10. **Soft-object ultrasonic detection** — bags/fabric absorb ultrasound.
+    This is a physics limitation of HC-SR04, not a wiring issue. Solid
+    obstacles (walls, boxes) detected reliably after 5V power fix.
+11. **PlantVillage domain gap** — prints/photos-of-photos degrade AI accuracy.
+    Screen-displayed dataset images expected to classify correctly.
+    **Mitigated (12 Nov):** New model retrained at 95.1% val; 8-print test
+    pending to quantify print-quality impact.
+12. **Encoder drift at standstill** — minor drift during long obstacle holds.
+    Mitigated by short holds; documented limitation for report.
+13. **Old AI model degenerate** — original model undertrained/broken at export,
+    never verified with real images. **FIXED (12 Nov):** Replaced with
+    MobileNetV3Small transfer learning (95.1% val, RTX 5050/WSL2).
 
 ## Critical Path
 
@@ -210,8 +258,10 @@ robot_control/
 [COMPLETED] AI-waypoint integration (event-driven scanner + scan handshake)
 [COMPLETED] Working autonomous navigation + AI scan (29 Oct 2026)
 [COMPLETED] Manual AI Scan mode + normalization fix (2 Nov 2026)
-[ACTIVE]    Multi-waypoint mission → Camera lag fix → Field test
-[UPCOMING]  Battery monitor → Report → Slides → Viva (2 Dec 2026)
+[COMPLETED] Three root causes fixed: min_pwm 0.25, EKF IMU-yaw removal, ultrasonic 5V (10 Nov 2026)
+[COMPLETED] AI model root cause identified + retrained at 95.1% val (12 Nov 2026)
+[ACTIVE]    Deploy new model → 8-print test → straight run + box test
+[UPCOMING]  Multi-waypoint mission → Camera lag fix → Field test → Report → Slides → Viva (2 Dec 2026)
 ```
 
 ## Quick Commands

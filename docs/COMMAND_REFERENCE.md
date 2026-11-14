@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 2 November 2026
+Yvette Lee EnQi (25034155) · Last updated: 12 November 2026
 
 ---
 
@@ -28,6 +28,8 @@ Yvette Lee EnQi (25034155) · Last updated: 2 November 2026
 20. [AI-Waypoint Integration (28 Oct)](#20-ai-waypoint-integration-28-oct)
 21. [Working Autonomous Nav (29 Oct)](#21-working-autonomous-nav-29-oct)
 22. [Manual AI Scan Mode (2 Nov)](#22-manual-ai-scan-mode-2-nov)
+23. [Three Root Causes Fixed (10 Nov)](#23-three-root-causes-fixed-10-nov)
+24. [AI Root Cause Closed — Model Retrained (12 Nov)](#24-ai-root-cause-closed--model-retrained-12-nov)
 
 ---
 
@@ -400,7 +402,7 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | One-command bringup (10 processes) | Working |
 | QoS fix (/cmd_vel compatibility) | Working |
 | Watchdog latch fix | Working |
-| Camera lag reduction | Pending |
+| Camera lag | **RESOLVED** (proxy auto-reconnect, 3 Nov) |
 | ADS1115 battery monitor | Pending |
 | Field-test waypoint accuracy | Pending |
 | Report + slides | Pending |
@@ -460,7 +462,9 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 ### Known Issues
 
 1. **Debug logging is verbose** — WP/CMD spam in terminal. Remove before demo.
-2. **Camera lag** — 1080p @ 30 fps overloads Pi. Next: 640×480 @ 15 fps.
+2. **Camera lag — RESOLVED (3 Nov)** — Camera proxy auto-reconnect
+   (`while True` + `try/except`) eliminates stream death. 1080p @ 30 fps
+   stable. Resolution reduction no longer needed.
 3. **Encoder drift** — ±10% per-leg without GPS loop closure
 4. **IMU tilt** — BNO055 mounted ~18° off horizontal; remount before outdoor demo
 5. **GPS no fix indoors** — expected; navsat transform ready for outdoor
@@ -475,7 +479,7 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 | Priority | Task |
 |----------|------|
 | 1 | Multi-waypoint mission with scan at each |
-| 2 | Camera lag reduction (640×480 @ 15 fps) |
+| 2 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) | — |
 | 3 | Remove debug logging |
 | 4 | Tune arrival tolerance (15→20 cm if needed) |
 | 5 | Field-test waypoint accuracy on actual floor |
@@ -806,6 +810,242 @@ python3 -m json.tool ~/ros2_ws/src/robot_control/dashboard/data/results.json
 | `ai_inference.py` | `manual_scan_cb`, normalization fix, debug logging |
 | `index.html` | Scan Plant button, Clear Log button, status indicator |
 | `app.py` | POST `/api/clear` endpoint |
+
+---
+
+## 23. Three Root Causes Fixed (10 Nov)
+
+### Overview
+
+Every "mystery" symptom traced to a concrete hardware or configuration cause
+in one diagnostic session. Three independent root causes identified and fixed.
+
+---
+
+### Root Cause 1 — Motor PWM Floor Boost (navigation)
+
+**Symptom:** Robot "randomly turning," heading estimate moving impossibly
+fast, arcs during turn-in-place, driving away while believing aligned.
+
+**Discovery:** WP debug log showed commanded `0.3 rad/s` but yaw changing at
+`1.1–2.2 rad/s` (4–7×). The EKF was **correct** — the robot physically moved
+that fast.
+
+**Cause:** `min_pwm = 0.4` in `motor_driver.py` forces every nonzero motor
+command to ≥40% duty. Gentle turns become motors at flat-out speed.
+
+**Fix:**
+```python
+# motor_driver.py
+self.min_pwm = 0.25  # was 0.4
+```
+
+**Lesson:** Verify actuator output before blaming estimators.
+
+---
+
+### Root Cause 2 — IMU Absolute Yaw Fused in EKF (navigation)
+
+**Symptom:** Robot always turns when pressing Run, drives away from waypoint
+while `yaw_err ≈ 0` (log: dist 2.19 → 4.47 at yaw_err -0.10).
+
+**Cause:** `ekf.yaml` fused BNO055 **absolute yaw** (magnetometer-derived,
+calib mag=0, motor-wire magnetic interference) mixed with encoder odometry.
+Heading frame corrupted — encoder position and IMU heading in different frames.
+
+**Fix:**
+```yaml
+# config/ekf.yaml
+imu0_config: [false, false, false,
+              false, false, false,  # orientation x,y,z — DISABLED
+              false, false, false,
+              true,  true,  true,   # angular velocity x,y,z (yaw rate only)
+              false, false, false]
+imu0_differential: false
+```
+
+Encoders now **own yaw** (self-consistent with position); IMU smooths yaw rate
+only.
+
+**Verification:**
+```bash
+# Run yaw_check.py — compare /odom vs /odometry/filtered yaw during hand-rotation
+ros2 run robot_control yaw_check.py
+```
+
+---
+
+### Root Cause 3 — Ultrasonic Sensors on 3.3V Rail (HARDWARE)
+
+**Symptom:** Weeks of phantom obstacles, missed detections, idle OBSTACLE spam,
+3–50 cm garbage at standstill, robot ran into a bag undetected.
+
+**Cause:** HC-SR04 is a **5V sensor**; 3.3V rail starved the transmitter →
+marginal/garbage echoes.
+
+**Fix:**
+1. VCC moved to **Pi 5V Pin 2** (echo dividers 1kΩ+2kΩ retained)
+2. `>3.0 m` artifact filter in `measure()` kills timeout-boundary junk:
+```python
+# ultrasonic_node.py
+dist = round(duration * 17150, 1)
+if dist > 300.0:  # >3.0m = artifact (max real range ~2m)
+    return None
+```
+
+**Verification:**
+```bash
+# Standalone test (no ROS, needs exclusive GPIO — stop bringup first)
+python3 ~/ros2_ws/src/robot_control/test_ultrasonic.py
+```
+
+**Documented limitation:** Soft objects (bags, fabric) absorb ultrasound —
+physics limitation of HC-SR04, not a wiring issue.
+
+---
+
+### Bugs Fixed (Same Session)
+
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | Follower `IndexError` crash | Restored `not running/waypoints` guard + `current_idx` clamp |
+| 2 | Manual-drive jerking | Follower publishes zeros **only when autonomous** (`self.autonomous` check) |
+| 3 | Camera `/video_feed` 500 | Atomic write: `.jpg.tmp` → `_tmp.jpg` + `os.replace` (OpenCV codec selection) |
+| 4 | Dashboard "0 waypoints" | New `/api/waypoints` Flask endpoint + live count |
+
+---
+
+### Dashboard v2 Rewrite
+
+- **Nav Debug card:** live pos, yaw, dist, `yaw_err` to first waypoint
+- **Live waypoint count:** `/api/waypoints`
+- **Throttled subscriptions:** IMU 10 Hz, odom 4 Hz, env 2 Hz (prevents rosbridge queue overflow)
+
+---
+
+### Diagnostic Tools Added
+
+| Tool | Command | Purpose |
+|------|---------|---------|
+| `yaw_check.py` | `ros2 run robot_control yaw_check.py` | Compare `/odom` vs `/odometry/filtered` yaw |
+| `test_ultrasonic.py` | `python3 test_ultrasonic.py` | Standalone HC-SR04 test (stop bringup first) |
+| WP/CMD debug log | Follower 10 Hz output | Primary diagnostic — dist, yaw_err, vx, vz |
+
+---
+
+### Verification Sequence (Post-Fix)
+
+```bash
+# 1. Reboot → single launch → gate check
+ros2 launch robot_control bringup.launch.py
+
+# 2. Dashboard green, wp-count live, Nav Debug card populated
+# 3. Straight run: small stable yaw_err, monotonic dist decrease
+# 4. Box test (solid obstacle): pause ~20cm, hold, resume on removal
+# 5. AI screen test: dataset image on phone, tilted against glare
+```
+
+---
+
+## 24. AI Root Cause Closed — Model Retrained (12 Nov)
+
+### Diagnosis Summary
+
+Multi-day investigation concluded: **the original model file was degenerate**
+(undertrained/broken at export), not a preprocessing or label issue.
+
+**Ruled out in sequence:**
+
+| Test | Result | Conclusion |
+|------|--------|------------|
+| 4-known-inputs (potato healthy, tomato late blight, bell pepper healthy, potato early blight) | ALL output same class ~90% | Ruled out **label permutation** — permutation gives varying wrong answers |
+| Original dataset image fed DIRECTLY (no print, no camera) | Still "Tomato Late blight" 84.8% | Ruled out **camera/preprocessing** |
+| Verified float32 in/out (NOT quantized) | `[-1, 1]` preprocessing appropriate | Ruled out **quantization mismatch** |
+| **Final conclusion** | Model file itself broken | **Retraining required** |
+
+### Retraining — Stage 1: Colab CPU (Proof of Concept)
+
+- Small custom CNN on 3200-image subset
+- 73.8% val accuracy
+- 4/5 sanity OK (model learns, underfits)
+
+### Retraining — Stage 2: RTX 5050/WSL2 (Production Model)
+
+**Environment:**
+- WSL2 Ubuntu + TF 2.21 + pip CUDA 12.9
+- GPU bring-up: `cudnn .so.9` symlinks + `LD_LIBRARY_PATH` for pip nvidia dirs
+- `nvidia-smi`: driver 610, CUDA UMD 13.3
+
+**Training config:**
+```python
+base_model = MobileNetV3Small(weights='imagenet', include_top=False)
+# FULL dataset: 387 MB, 16 classes
+epochs = 20
+EarlyStopping(patience=4, restore_best_weights=True)
+```
+
+**Result:**
+```
+Validation accuracy: 95.1%
+Sanity checks: 5/5 passed
+  - tomato early blight
+  - tomato target spot
+  - tomato late blight
+  - tomato bacterial spot
+  - tomato septoria
+```
+
+**Label safety:** `class_names.json` exported from `train_ds.class_names` in
+the **same script** → label misalignment structurally impossible.
+
+### Deployment Loop
+
+```bash
+# On WSL2 (training machine)
+scp plant_health.tflite class_names.json yvette_pi@[PI_IP]:~/ros2_ws/src/robot_control/models/
+
+# On Pi
+mv models/plant_health.tflite models/plant_health.tflite.bak
+mv models/class_names.json models/class_names.json.bak
+mv models/plant_health.tflite.new models/plant_health.tflite
+mv models/class_names.json.new models/class_names.json
+sudo reboot
+
+# After reboot
+ros2 launch robot_control bringup.launch.py
+```
+
+### Viva Terminology
+
+| Question | Answer |
+|----------|--------|
+| "Is this object detection?" | No — **single-label image classifier**. Output: `[1, 16]` softmax. |
+| "Why not YOLO?" | Station-based inspection isolates the leaf; classifier sufficient. YOLOv8n + edge accelerator is **Stage-2 future work**. |
+| "Demo workflow?" | Waypoint positions leaf → classify → log to dashboard. |
+
+### Report Framing
+
+Station-based inspection = **deliberate design:**
+- Stable framing supports classifier accuracy
+- Pi 5 compute favors short high-quality inferences
+- Farmer value chain: patrol row → inspect at stations → log positions
+
+Optional stretch: "patrol mode" (1 Hz classify while creeping 0.15 m/s) —
+~30 lines using existing components.
+
+### Quick Fixes Recorded
+
+| Issue | Fix |
+|-------|-----|
+| TF + pip CUDA WSL2: "Cannot dlopen some GPU libraries" | cudnn symlink fix → then add all `nvidia/*/lib` dirs to `LD_LIBRARY_PATH` |
+| file.io links expire if opened in browser before `wget` | Verify with `file` command; HTML error page saved as `.jpg` |
+| `scp` on Windows with placeholders | Use real paths or Tab completion; spaces need quotes |
+
+### Next Steps
+
+1. Deploy new model to Pi (scp + backup + reboot)
+2. 8-print score test (expect 7–8/8)
+3. Straight run + box test with new EKF + min_pwm 0.25
 
 ---
 

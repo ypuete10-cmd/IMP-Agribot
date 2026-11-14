@@ -8,21 +8,12 @@ navigation with emergency stop hardening, **AI scan at each waypoint**
 (event-driven scanner + scan handshake), and results displayed on a unified
 farmer-facing Mission Control dashboard.
 
-**MAJOR MILESTONE (29 Oct 2026): End-to-end autonomous navigation + AI scan
-integration VERIFIED — robot drives, arrives, scans, and resumes autonomously.**
-
-**UPDATE (2 Nov 2026): Manual AI Scan Mode added — on-demand classification
-from dashboard without waypoint setup. MobileNetV3 normalization fixed
-([0,255] → [-1,1]) for significantly improved accuracy.**
-
-![AgriBot system](https://github.com/user-attachments/assets/dc5bf120-d234-43b8-aae1-257221774d6b)
-
 ---
 
 ## Hardware
 
 | Component | Purpose |
-|-----------|---------|
+| --- | --- |
 | Raspberry Pi 5 (Ubuntu 24.04, ROS2 Jazzy) | Main computer |
 | USB Webcam (1080p, V4L2) | Plant imaging |
 | MobileNetV3-Small (TFLite float16) | On-device disease classification (16 classes) |
@@ -36,7 +27,7 @@ from dashboard without waypoint setup. MobileNetV3 normalization fixed
 
 > **Note:** The Pi Camera Module v2 was retired — Ubuntu 24.04 lacks the
 > `rpicam` ISP stack. USB webcam (V4L2/UVC) is plug-and-play.
->
+> >
 > The shop substituted BNO055 for the originally ordered MPU9250. Kept
 > deliberately: onboard fusion processor outputs ready quaternion (no
 > Madgwick/Mahony library needed).
@@ -46,48 +37,41 @@ from dashboard without waypoint setup. MobileNetV3 normalization fixed
 ## Software Architecture
 
 - **ROS2 package `robot_control`** — 10 live processes:
-  - `camera_stream` — Flask MJPEG stream (port 5000) + writes every frame to `/tmp/latest_frame.jpg`
-  - `motor_driver` — PWM differential drive + emergency cut-off + watchdog latch fix, subscribes `/cmd_vel`
-  - `encoder_node` — 4-wheel counting + signed odometry + TF
-  - `imu_node` — BNO055 I2C fusion, publishes `/imu/data` at 20 Hz
-  - `gps_node` — NEO-8M UART parser, publishes `/fix` at 1 Hz
-  - `env_node` — AHT30 temp/humidity, publishes `/env/*`
-  - `ekf_node` — `robot_localization`, fuses `/odom` + `/imu/data` → `/odometry/filtered` (5 Hz)
-  - `waypoint_follower` — indoor autonomous nav, pause-resume on emergency + scan handshake
-  - `ultrasonic_node` — 2× HC-SR04 front sensors, debounced emergency stop
-  - `ai_inference` — **event-driven TFLite scanner**: triggers on `/waypoint/reached` (autonomous) or `/ai/scan_trigger` (manual), classifies shared frame with MobileNetV3 normalization (img/127.5-1.0), publishes `/plant_health` + `/waypoint/scan_done`
-
+- `camera_stream` — Flask MJPEG stream (port 5000) + writes every frame to `/tmp/latest_frame.jpg`
+- `motor_driver` — PWM differential drive + emergency cut-off + watchdog latch fix, subscribes `/cmd_vel`
+- `encoder_node` — 4-wheel counting + signed odometry + TF
+- `imu_node` — BNO055 I2C fusion, publishes `/imu/data` at 20 Hz
+- `gps_node` — NEO-8M UART parser, publishes `/fix` at 1 Hz
+- `env_node` — AHT30 temp/humidity, publishes `/env/*`
+- `ekf_node` — `robot_localization`, fuses `/odom` + `/imu/data` → `/odometry/filtered` (5 Hz)
+- `waypoint_follower` — indoor autonomous nav, pause-resume on emergency + scan handshake
+- `ultrasonic_node` — 2× HC-SR04 front sensors, debounced emergency stop
+- `ai_inference` — **event-driven TFLite scanner**: triggers on `/waypoint/reached` (autonomous) or `/ai/scan_trigger` (manual), classifies shared frame with MobileNetV3 normalization (img/127.5-1.0), publishes `/plant_health` + `/waypoint/scan_done`
 - **AI pipeline** — PlantVillage → 16-class subset (15 diseases + Other) →
-  MobileNetV3-Small transfer learning → TFLite float16 (~90.1% val accuracy)
-
+MobileNetV3-Small transfer learning → TFLite float16 (~90.1% val accuracy)
 - **Mission Control dashboard** (Flask, port 8080) — unified page with live
-  sensor cards (GPS, odom, heading, environment, AI scan), embedded camera +
-  drive pad, **keyboard WASD/arrow control**, **waypoint Save/Run/Stop buttons**,
-  **"Scan Plant" button** (manual AI scan with status indicator), **Clear Log
-  button**, GPS health map, results table. All sensor data via `roslib.js` over
-  rosbridge WebSocket. Camera proxy with zero hardcoded IPs. Throttle rates on
-  heavy topics to prevent rosbridge queue overflow.
-
+sensor cards (GPS, odom, heading, environment, AI scan), embedded camera +
+drive pad, **keyboard WASD/arrow control**, **waypoint Save/Run/Stop buttons**,
+**"Scan Plant" button** (manual AI scan with status indicator), **Clear Log
+button**, GPS health map, results table. All sensor data via `roslib.js` over
+rosbridge WebSocket. Camera proxy with zero hardcoded IPs. Throttle rates on
+heavy topics to prevent rosbridge queue overflow.
 - **Web drive control** — browser teleop at `/control` (standalone) and
-  embedded in Mission Control. WASD + speed slider + auto-stop.
-
+embedded in Mission Control. WASD + speed slider + auto-stop.
 - **Emergency stop v2** — motor-level cut-off in `motor_driver.py` (zeroes
-  motors for ALL cmd_vel sources). Waypoint follower pause-resume: freezes
-  on obstacle, auto-resumes when clear. Ultrasonic noise filtering:
-  staggered pings, median-of-3, 5-reading debounce, 2cm glitch filter.
-
+motors for ALL cmd_vel sources). Waypoint follower pause-resume: freezes
+on obstacle, auto-resumes when clear. Ultrasonic noise filtering:
+staggered pings, median-of-3, 5-reading debounce, 2cm glitch filter.
 - **AI-waypoint integration** — event-driven scan handshake: follower publishes
-  `/waypoint/reached` → AI classifies → publishes `/waypoint/scan_done` →
-  follower auto-resumes to next waypoint. Frame sharing via `/tmp/latest_frame.jpg`
-  avoids camera device contention.
-
+`/waypoint/reached` → AI classifies → publishes `/waypoint/scan_done` →
+follower auto-resumes to next waypoint. Frame sharing via `/tmp/latest_frame.jpg`
+avoids camera device contention.
 - **Manual AI Scan Mode** — on-demand classification without waypoint setup.
-  Dashboard "Scan Plant" button publishes `/ai/scan_trigger` → AI grabs shared
-  frame → classifies → updates AI Last Scan card + Results Table. Logged as
-  "WP-00" in `results.json`.
-
+Dashboard "Scan Plant" button publishes `/ai/scan_trigger` → AI grabs shared
+frame → classifies → updates AI Last Scan card + Results Table. Logged as
+"WP-00" in `results.json`.
 - **One-command bringup** — `ros2 launch robot_control bringup.launch.py`
-  starts the full robot stack (10 processes: 9 ROS nodes + camera stream).
+starts the full robot stack (10 processes: 9 ROS nodes + camera stream).
 
 ---
 
@@ -95,40 +79,29 @@ from dashboard without waypoint setup. MobileNetV3 normalization fixed
 
 **Working autonomous navigation + AI scan** — end-to-end mission verified:
 Run → Drive → Arrive → Scan → Resume → Complete. ~5 cm accuracy over 1 m.
-(29 Oct 2026):
-
-![Mission Control dashboard during autonomous run with live sensor cards, camera feed, and waypoint status](https://github.com/user-attachments/assets/57fdb910-a351-4074-9a8e-0b985890a183)
+(29 Oct 2026)
 
 **AI-waypoint integration** — event-driven scanner with scan handshake
-(28 Oct 2026):
-
-![AgriBot on lab floor during waypoint navigation testing](https://github.com/user-attachments/assets/525101c1-b360-4ae8-b857-4fdcf9e1f634)
+(28 Oct 2026)
 
 **Emergency stop v2** — motor-level cut-off with pause-resume waypoint
-navigation (22 Oct 2026):
-
-![Front HC-SR04 ultrasonic sensors with voltage dividers](https://github.com/user-attachments/assets/79f3b59e-ecee-4f50-99c0-70cf029cba2b)
+navigation (22 Oct 2026)
 
 **Mission Control dashboard** — live sensor strip, camera, drive pad, GPS map,
-and results table (9 Oct 2026):
-
-![Mission Control dashboard — sensor cards, camera feed, drive pad](https://github.com/user-attachments/assets/669aabed-7c8f-424b-a11e-766d7152212e)
+and results table (9 Oct 2026)
 
 **Live end-to-end inference test** — robot camera classifying a leaf displayed
-on phone (30 Sep 2026):
-
-![Live inference test — robot classifying leaf image on phone](https://github.com/user-attachments/assets/b16aba8d-723a-4b9d-9569-3d3ec4cedd94)
+on phone (30 Sep 2026)
 
 **TFLite performance** on Pi 5 CPU — no accelerator needed:
-
-![TFLite benchmark: 3.5 ms/frame, 282 FPS](https://github.com/user-attachments/assets/e3fa8fbb-48d4-4445-a93a-bd0293608a8d)
+3.5 ms/frame, 282 FPS
 
 ---
 
 ## Documentation
 
 | File | Contents |
-|------|----------|
+| --- | --- |
 | **[Build Log](docs/BUILD_LOG.md)** | Dated progress history with photos |
 | **[Project Status](docs/STATUS.md)** | Current progress, GPIO pinout, critical path |
 | **[Command Reference](docs/COMMAND_REFERENCE.md)** | All commands, quick fixes, file locations |
@@ -137,7 +110,7 @@ on phone (30 Sep 2026):
 
 ## Repository Structure
 
-```
+```javascript
 robot_control/
 ├── robot_control/              # ROS2 nodes
 │   ├── camera_stream.py         # + frame sharing to /tmp/latest_frame.jpg
@@ -193,7 +166,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 ## Key Specs
 
 | Metric | Value |
-|--------|-------|
+| --- | --- |
 | AI model | MobileNetV3-Small, 16 classes |
 | Validation accuracy | 90.1% |
 | Inference speed | 3.5 ms/frame (282 FPS) |
@@ -226,7 +199,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 ## Project Timeline
 
 | Milestone | Date |
-|-----------|------|
+| --- | --- |
 | Chassis printed + assembled | 28 Sep 2026 |
 | AI pipeline working | 22 Sep 2026 |
 | Electronics + live inference | 30 Sep 2026 |
@@ -242,6 +215,11 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | AI-waypoint integration | 28 Oct 2026 |
 | **Working autonomous nav + AI scan** | **29 Oct 2026** |
 | Manual AI Scan mode + normalization fix | 2 Nov 2026 |
+| Dashboard v2 + camera proxy auto-reconnect | 3 Nov 2026 |
+| Camera lag resolved (proxy auto-reconnect) | 3 Nov 2026 |
+| Three root causes fixed (PWM, EKF yaw, ultrasonic 5V) | 10 Nov 2026 |
+| AI model retrained at 95.1% val (RTX 5050/WSL2) | 12 Nov 2026 |
+| Deploy new model + 8-print test + straight run + box test | *Next* |
 | Multi-waypoint mission with plant photos | *Next* |
 | Camera lag reduction | *Next* |
 | Field-test waypoint accuracy | *Next* |
