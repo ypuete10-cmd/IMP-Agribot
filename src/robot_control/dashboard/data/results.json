@@ -1,50 +1,5 @@
 {
   "mission_id": "INDOOR-RUN",
-  "updated": "2026-11-14T14:56:10",
-  "results": [
-    {
-      "id": 1,
-      "waypoint": "WP-00",
-      "timestamp": "2026-11-14T14:55:46",
-      "lat": 0.0,
-      "lon": 0.0,
-      "x": 0.0,
-      "y": 0.0,
-      "classification": "Other",
-      "confidence": 0.942
-    },
-    {
-      "id": 2,
-      "waypoint": "WP-00",
-      "timestamp": "2026-11-14T14:55:52",
-      "lat": 0.0,
-      "lon": 0.0,
-      "x": 0.0,
-      "y": 0.0,
-      "classification": "Other",
-      "confidence": 0.985
-    },
-    {
-      "id": 3,
-      "waypoint": "WP-00",
-      "timestamp": "2026-11-14T14:56:03",
-      "lat": 0.0,
-      "lon": 0.0,
-      "x": 0.0,
-      "y": 0.0,
-      "classification": "Other",
-      "confidence": 0.938
-    },
-    {
-      "id": 4,
-      "waypoint": "WP-00",
-      "timestamp": "2026-11-14T14:56:10",
-      "lat": 0.0,
-      "lon": 0.0,
-      "x": 0.0,
-      "y": 0.0,
-      "classification": "Other",
-      "confidence": 0.808
-    }
-  ]
+  "updated": "",
+  "results": []
 }
