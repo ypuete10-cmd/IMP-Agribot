@@ -1,0 +1,15 @@
+[Unit]
+Description=IMP-AgriBot dashboard (Flask :8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/yvette_pi
+Type=simple
+User=yvette_pi
+ExecStart=/usr/bin/python3 /home/yvette_pi/ros2_ws/src/robot_control/dashboard/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
