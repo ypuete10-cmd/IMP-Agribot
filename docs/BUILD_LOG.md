@@ -4,6 +4,147 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 24/11/2026 — FINAL REPORT SUBMITTED + AUTOSTART + VERIFICATION
+
+### Navigation & Verification (18–20 Nov)
+
+**18 Nov — End-to-end mission verified:**
+- Turn-to-align (139° initial error, `yaw_err = -2.42 rad`)
+- Drive 3.19 m
+- Arrival 0.12 m (within 15 cm tolerance)
+- Automatic scan handshake (`Reached WP` → AI scan → `All waypoints reached`)
+- Watchdog timeout stop
+- **Single-run log saved.** Committed + pushed (ed95d14, a1045b3).
+
+**18 Nov — Ultrasonic chain verified:**
+- `/ultrasonic/front` tracks hand/object smoothly 0.02–0.51 m
+- No phantom readings at standstill (3.3V starvation fixed)
+- Hysteresis working as designed
+- Box test effectively **pre-passed**
+
+**20 Nov — Navigation regression diagnosed:**
+- Underdamped heading control (gain 0.8 → 0.5)
+- Encoder/EKF verified healthy via waypoint follower logs
+- Turn direction confirmed correct; encoders ruled out
+
+---
+
+### Autostart & Deployment (20 Nov)
+
+**systemd autostart implemented:**
+
+| Service | Purpose | Status |
+|---------|---------|--------|
+| `agribot.service` | ROS 2 stack (bringup.launch.py) | Active |
+| `dashboard.service` | Flask dashboard (port 8080) | Active |
+
+- **Power-on to full operation in ~90 s**, zero terminal work required
+- `mDNS hostname` configured: `yvette-pi5.local` — no more IP hunting
+
+**Critical bug fixed — lgpio notify pipe fails under systemd:**
+- Root cause: systemd's default `/` working directory causes lgpio
+  notify pipe creation to fail
+- Fix: `WorkingDirectory=/home/yvette_pi` in both `.service` unit files
+- Motor, encoder, and ultrasonic nodes now work correctly under autostart
+
+**Repo state:**
+- `deploy/` — systemd unit files for autostart
+- `dashboard/data/results.json` — scan log (14 Nov entries verified)
+- All code current with `main` branch
+
+---
+
+### Report (done 25 Nov)
+
+**All chapters complete**, including:
+- **New Chapter 5:** PM & Quality Management Review
+  - Gantt comparison (planned vs actual)
+  - 7 Appendix F answers
+  - Deviations from Part A outline
+
+**All Mr Wong feedback addressed:**
+
+| Feedback Item | Fix |
+|---------------|-----|
+| Claim corrections | Verified and corrected |
+| BOM | SGD 396, battery spec consistent (3S LiPo) |
+| Literature fixes | Botterill et al. citation corrected |
+| Abstract | Condensed to ≤ 200 words |
+| CAD design figure | Added |
+| Power distribution diagram | Added |
+| Scan-handshake flowchart | Added |
+
+**Primary navigation evidence:** 18 Nov mission log cited throughout
+report (replaces unverifiable 29 Oct claim).
+
+---
+
+### Known Limitations (Documented in Report)
+
+| Limitation | Context | Mitigation |
+|------------|---------|------------|
+| Navigation results: single verified mission (18 Nov) + manual scans | Illness prevented 10-run repeatability table | Documented as scope limitation; 18 Nov log is verifiable evidence |
+| AI: validation-split only, no held-out test set | Time constraint | 8 printed cards tested (6 correct); domain-gap documented |
+| Battery: designed/costed, not wired | Indoor mains validation sufficient | Listed as Future Work; BOM includes full battery spec |
+
+---
+
+## 18/11/2026 — NAVIGATION VERIFIED END-TO-END + REGRESSION DIAGNOSED
+
+### Diagnostic Straight Run (Full Log)
+
+**End-to-end mission executed — single run, no interventions:**
+
+1. **Turn-to-align** — initial `yaw_err = -2.42 rad` (139°). Waypoint genuinely
+   off-heading in odometry frame. Turn direction **correct** — sign verified,
+   yaw falls monotonically under `-0.3 rad/s` command.
+2. **Drive 3.19 m** — distance decreases monotonically
+3. **Arrival** — position error 0.12 m (within 15 cm tolerance)
+4. **Scan handshake** — `Reached WP` → AI scan → `All waypoints reached`
+5. **Watchdog timeout stop** — motors zeroed after mission complete
+
+**Scan result:** `"Other: 73.9%"` with no plant in view → live demo of
+non-plant scene rejection.
+
+---
+
+### Root-Cause Analysis: "Turns Wrong / Vibrates"
+
+| Finding | Detail |
+|---------|--------|
+| Initial `yaw_err` | `-2.42 rad` (139°) — waypoint genuinely off-heading |
+| Turn direction | **Correct** — sign verified, yaw falls monotonically |
+| Encoders | Ruled out — yaw/position evolve smoothly, no divergence |
+| `min_pwm` | `0.25` confirmed in running code (symlink install active; `build/lib` copy without `min_pwm` is a fossil, not executed) |
+| **Root cause** | Underdamped heading control — yaw overshoots to `-1.92 rad`, S-curves ±0.5 rad while driving, CMD slams ±0.3 clamp |
+| **Fix under test** | Angular gain `0.8 → 0.5` (pending retest) |
+
+---
+
+### Ultrasonic Chain Verified
+
+- `/ultrasonic/front` tracks hand/object smoothly `0.02–0.51 m`
+- **No phantom readings at standstill** — 3.3V starvation fixed for real
+- Outliers (1 cm artifact, single missed echo) absorbed by median-of-3 +
+  3-reading hysteresis as designed
+
+---
+
+### Housekeeping
+
+**Results audit:**
+- `results.json` history audited: scan-logging verified 14 Nov (4 WP-00
+  entries, 80–98% conf)
+- No October data survives (30 Oct clears)
+- **Report now cites 18 Nov mission log** instead of unverifiable 29 Oct
+
+**Ops note:**
+- Rosbridge port collision = double-launch zombie → **one launch only after
+  reboot**
+- `camera_stream` missing from bringup — to fix
+
+---
+
 ## 14/11/2026 — AI PIPELINE FIXED END-TO-END — Double-Preprocessing Bug Squashed
 
 ### The Final AI Bug (After Model Fixed Yesterday)
@@ -63,7 +204,7 @@ confidence.
 
 **End-to-end AI pipeline demo — print scan classification in real time:**
 
-[AI pipeline demo — print scan classification](https://youtu.be/SkqaUM2IZ9Q)
+[![AI pipeline demo — print scan classification](PASTE_VIDEO_THUMBNAIL_URL)](PASTE_VIDEO_URL)
 
 **Terminal vs dashboard explained:**
 - Live top-3 debug shows actual probabilities in terminal
@@ -97,11 +238,16 @@ confidence.
 ### Remaining (Post-Draft)
 
 1. **Straight run verification** — EKF IMU-yaw-off config + min_pwm 0.25
-   (already staged)
-2. **Box test** — hysteresis pause/hold verification
-3. **Dress rehearsal** — 2-waypoint mission with scans at each stop
-4. **Battery wiring** — optional; Future Work bullet if time runs out
+   (already staged) ✅ completed 18 Nov
+2. **Box test** — hysteresis pause/hold verification (effectively pre-passed
+   18 Nov; formal run pending)
+3. **Dress rehearsal** — 2-waypoint mission with scans at each stop +
+   dashboard recording (generates final report evidence + viva demo)
+4. **Report draft submitted** — 19 Nov 2026
+5. **Battery wiring** — optional; Future Work bullet already drafted
 
+**Suggested commit message:**
+`"Fix double preprocessing (model-internal preprocess_input vs pipeline [-1,1]); AI print scans now classify correctly"`
 
 ---
 
@@ -515,6 +661,8 @@ Results Table with class names and confidence scores:**
 3. Wait 1–2 seconds for "Scanning..." → "Done"
 4. Check **AI Last Scan** card and **Results Table**
 
+**Suggested commit message:**
+`"Add Manual AI Scan mode with live status indicator and Clear Log button"`
 
 ---
 
