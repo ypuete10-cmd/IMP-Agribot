@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 14 November 2026 · Viva: 2 December 2026
+Last updated: 24 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -141,23 +141,43 @@ robot_control/
 30. **AI pipeline end-to-end verified (14 Nov)** — Model deployed,
     hash-verified, camera print scans classify correctly. Dashboard
     screenshots + scan logs captured for Results chapter.
+31. **Navigation verified end-to-end (18 Nov)** — Single-run mission:
+    turn-to-align (139° initial error) → drive 3.19 m → arrival 0.12 m
+    → scan handshake → watchdog timeout stop. No interventions.
+32. **"Turns wrong / vibrates" regression diagnosed (18 Nov)** — Not a
+    hardware bug. Initial `yaw_err = -2.42 rad` was genuine heading offset;
+    turn direction correct. Residual vibration = underdamped heading control
+    (yaw overshoots, S-curves ±0.5 rad). Fix: angular gain `0.8 → 0.5`
+    (pending retest).
+33. **Ultrasonic chain verified (18 Nov)** — Tracks 0.02–0.51 m smoothly,
+    no phantom readings, outliers absorbed by median-of-3 + hysteresis.
+34. **Report evidence updated (18 Nov)** — `results.json` audited; 18 Nov
+    mission log replaces unverifiable 29 Oct data.
+35. **systemd autostart implemented (20 Nov)** — `agribot.service` +
+    `dashboard.service`. Power-on to full operation in ~90 s. mDNS hostname
+    `yvette-pi5.local` configured.
+36. **lgpio notify pipe bug fixed under systemd (20 Nov)** — systemd's
+    default `/` cwd caused lgpio pipe creation to fail. Fixed with
+    `WorkingDirectory=/home/yvette_pi` in unit files.
+37. **Final report submitted (25 Nov)** — All chapters complete incl.
+    Ch.5 PM & Quality Management Review. All Mr Wong feedback addressed
+    (BOM SGD 396, literature fixes, abstract ≤200 words, CAD figure, power
+    diagram, scan-handshake flowchart). Known limitations documented.
 
 ## What Is Left (Priority Order)
 
 | # | Task | Due |
 |---|------|-----|
-| 1 | Straight run verification (EKF IMU-yaw-off + min_pwm 0.25) | Nov |
-| 2 | Box test (hysteresis pause/hold verification) | Nov |
-| 3 | Dress rehearsal: 2-waypoint mission with scans at each stop | Nov |
-| 4 | Remove debug logging (reduce log spam) | Nov |
-| 5 | Multi-waypoint mission refinement | Nov |
-| 6 | Camera lag — **RESOLVED** (proxy auto-reconnect 3 Nov) | — |
-| 7 | Tune arrival tolerance (15cm → 20cm if needed) | Nov |
-| 8 | Field-test waypoint accuracy on actual floor | Nov |
-| 9 | ADS1115 battery monitor (when LiPo returns) — optional / Future Work | Nov |
-| 10 | Report writing + documentation | Nov–Dec |
-| 11 | Viva presentation slides | 30 Nov |
-| 12 | Final demo / viva | **2 Dec 2026** |
+| 1 | Slides preparation — deadline 30 Nov 2026 | Nov |
+| 2 | Viva rehearsal | Dec |
+| 3 | Final demo / viva | **2 Dec 2026** |
+| 4 | Camera lag — **RESOLVED** (proxy auto-reconnect 3 Nov) | — |
+| 5 | AI double-preprocessing — **RESOLVED** (feed [0,255], 14 Nov) | — |
+| 6 | Navigation end-to-end — **VERIFIED** (18 Nov) | — |
+| 7 | systemd autostart — **COMPLETE** (20 Nov) | — |
+| 8 | Final report — **SUBMITTED** (25 Nov) | — |
+| 9 | ADS1115 battery monitor (optional / Future Work) | — |
+| 10 | Outdoor field tests (deferred / Future Work) | — |
 
 ## Hardware Status
 
@@ -265,6 +285,14 @@ robot_control/
 15. **Camera frame staleness** — `/tmp/latest_frame.jpg` can be stale after
     relaunch → constant wrong classification. **Mitigation:** Full restart
     before scan sessions; camera freshness = pre-session checklist item.
+16. **Underdamped heading control (18 Nov)** — yaw overshoots and S-curves
+    ±0.5 rad while driving, CMD slams ±0.3 clamp. **Fix under test:**
+    angular gain `0.8 → 0.5` (pending retest). Not a hardware bug — encoders
+    and turn direction verified correct.
+17. **Rosbridge port collision** — double-launch creates zombie rosbridge
+    instance. **Mitigation:** One launch only after reboot.
+18. **camera_stream missing from bringup** — not started by
+    `bringup.launch.py`. **Fix pending.**
 
 ## Critical Path
 
@@ -278,8 +306,11 @@ robot_control/
 [COMPLETED] Three root causes fixed: min_pwm 0.25, EKF IMU-yaw removal, ultrasonic 5V (10 Nov 2026)
 [COMPLETED] AI model root cause identified + retrained at 95.1% val (12 Nov 2026)
 [COMPLETED] AI double-preprocessing bug fixed + pipeline end-to-end verified (14 Nov 2026)
-[ACTIVE]    Straight run → Box test → Dress rehearsal (2-waypoint mission)
-[UPCOMING]  Report → Slides → Viva (2 Dec 2026)
+[COMPLETED] Navigation verified end-to-end (18 Nov 2026) — 3.19 m drive, 0.12 m arrival, scan handshake
+[COMPLETED] systemd autostart + mDNS + lgpio systemd fix (20 Nov 2026)
+[COMPLETED] Final report done (25 Nov 2026) — all chapters + feedback addressed
+[ACTIVE]    Slides preparation → Viva rehearsal
+[UPCOMING]  Viva (2 Dec 2026)
 ```
 
 ## Quick Commands
