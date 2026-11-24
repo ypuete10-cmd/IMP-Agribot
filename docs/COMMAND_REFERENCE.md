@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 14 November 2026
+Yvette Lee EnQi (25034155) · Last updated: 24 November 2026
 
 ---
 
@@ -31,6 +31,8 @@ Yvette Lee EnQi (25034155) · Last updated: 14 November 2026
 23. [Three Root Causes Fixed (10 Nov)](#23-three-root-causes-fixed-10-nov)
 24. [AI Root Cause Closed — Model Retrained (12 Nov)](#24-ai-root-cause-closed--model-retrained-12-nov)
 25. [AI Pipeline Fixed End-to-End (14 Nov)](#25-ai-pipeline-fixed-end-to-end-14-nov)
+26. [Navigation Verified End-to-End (18 Nov)](#26-navigation-verified-end-to-end-18-nov)
+27. [Final Report + Autostart + Verification (24 Nov)](#27-final-report--autostart--verification-24-nov)
 
 ---
 
@@ -379,7 +381,7 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 
 ---
 
-## 17. Status Snapshot (2 Nov 2026)
+## 17. Status Snapshot (24 Nov 2026)
 
 | Component | Status |
 |-----------|--------|
@@ -399,16 +401,22 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | Web drive control | Working |
 | AI inference (TFLite) | Working |
 | **Manual AI Scan Mode** | **Working** |
-| **AI normalization fix** | **Working** ([-1, 1]) |
+| **AI normalization fix** | **Working** ([0, 255] feed) |
 | One-command bringup (10 processes) | Working |
 | QoS fix (/cmd_vel compatibility) | Working |
 | Watchdog latch fix | Working |
 | Camera lag | **RESOLVED** (proxy auto-reconnect, 3 Nov) |
 | AI double-preprocessing | **RESOLVED** (feed [0,255], 14 Nov) |
 | AI pipeline end-to-end | **VERIFIED** (4/4 direct + print scans, 14 Nov) |
-| ADS1115 battery monitor | Pending |
-| Field-test waypoint accuracy | Pending |
-| Report + slides | Pending |
+| Navigation end-to-end | **VERIFIED** (3.19 m drive, 0.12 m arrival, 18 Nov) |
+| **systemd autostart** | **COMPLETE** (agribot.service + dashboard.service, 20 Nov) |
+| **mDNS hostname** | **COMPLETE** (yvette-pi5.local, 20 Nov) |
+| **lgpio systemd fix** | **COMPLETE** (WorkingDirectory fix, 20 Nov) |
+| **Final report** | **SUBMITTED** (all chapters + feedback, 25 Nov) |
+| Heading control tuning | Fix identified (angular gain 0.8→0.5, 20 Nov) |
+| ADS1115 battery monitor | Future Work |
+| Field-test waypoint accuracy | Future Work |
+| Slides | In Progress (due 30 Nov) |
 
 ---
 
@@ -481,15 +489,15 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 
 | Priority | Task |
 |----------|------|
-| 1 | Straight run + box test + dress rehearsal |
-| 2 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) |
-| 3 | AI double-preprocessing — **RESOLVED** (feed [0,255], 14 Nov) |
-| 4 | Remove debug logging |
-| 5 | Tune arrival tolerance (15→20 cm if needed) |
-| 6 | Field-test waypoint accuracy on actual floor |
-| 7 | ADS1115 battery monitor (optional / Future Work) |
-| 8 | Report writing + documentation |
-| 9 | Slides (due 30 Nov) |
+| 1 | Slides preparation (due 30 Nov) |
+| 2 | Viva rehearsal |
+| 3 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) |
+| 4 | AI double-preprocessing — **RESOLVED** (feed [0,255], 14 Nov) |
+| 5 | Navigation end-to-end — **VERIFIED** (18 Nov) |
+| 6 | systemd autostart — **COMPLETE** (20 Nov) |
+| 7 | Final report — **SUBMITTED** (25 Nov) |
+| 8 | ADS1115 battery monitor (Future Work) |
+| 9 | Outdoor field tests (Future Work) |
 | 10 | Viva (2 Dec 2026) |
 
 ---
@@ -1046,9 +1054,10 @@ Optional stretch: "patrol mode" (1 Hz classify while creeping 0.15 m/s) —
 
 ### Next Steps
 
-1. Straight run verification (EKF IMU-yaw-off + min_pwm 0.25)
+1. Angular gain retest (0.8→0.5)
 2. Box test (hysteresis pause/hold)
 3. Dress rehearsal: 2-waypoint mission with scans at each stop
+4. Fix camera_stream in bringup launch
 
 ---
 
@@ -1161,6 +1170,165 @@ python3 ~/test_model.py t1.jpg t2.jpg t3.jpg t4.jpg
 | `ai_inference.py` | Feed `[0, 255]` float — remove double preprocessing |
 | `test_model.py` | Same fix for standalone testing |
 | `plant_health.tflite.bak` | Old degenerate model backed up for report |
+
+---
+
+## 26. Navigation Verified End-to-End (18 Nov)
+
+### Diagnostic Straight Run (Full Log)
+
+**End-to-end mission executed — single run, no interventions:**
+
+| Phase | Detail |
+|-------|--------|
+| Turn-to-align | Initial `yaw_err = -2.42 rad` (139°). Waypoint genuinely off-heading. Turn direction **correct** — sign verified, yaw falls monotonically. |
+| Drive | 3.19 m — distance decreases monotonically |
+| Arrival | Position error 0.12 m (within 15 cm tolerance) |
+| Scan handshake | `Reached WP` → AI scan → `All waypoints reached` |
+| Stop | Watchdog timeout — motors zeroed after mission complete |
+
+**Scan result:** `"Other: 73.9%"` with no plant in view → live demo of
+non-plant scene rejection.
+
+### Root-Cause Analysis: "Turns Wrong / Vibrates"
+
+| Finding | Detail |
+|---------|--------|
+| Initial `yaw_err` | `-2.42 rad` (139°) — waypoint genuinely off-heading in odometry frame |
+| Turn direction | **Correct** — sign verified, yaw falls monotonically under `-0.3 rad/s` command |
+| Encoders | Ruled out — yaw/position evolve smoothly, no divergence |
+| `min_pwm` | `0.25` confirmed in running code (symlink install active) |
+| **Root cause** | Underdamped heading control — yaw overshoots to `-1.92 rad`, S-curves ±0.5 rad while driving, CMD slams ±0.3 clamp |
+| **Fix under test** | Angular gain `0.8 → 0.5` (pending retest) |
+
+### Ultrasonic Chain Verified
+
+- `/ultrasonic/front` tracks hand/object smoothly `0.02–0.51 m`
+- No phantom readings at standstill — 3.3V starvation fixed for real
+- Outliers (1 cm artifact, single missed echo) absorbed by median-of-3 +
+  3-reading hysteresis as designed
+
+### Housekeeping
+
+**Results audit:**
+- `results.json` history audited: scan-logging verified 14 Nov (4 WP-00
+  entries, 80–98% conf)
+- No October data survives (30 Oct clears)
+- **Report now cites 18 Nov mission log** instead of unverifiable 29 Oct
+
+**Ops notes:**
+- Rosbridge port collision = double-launch zombie → **one launch only after
+  reboot**
+- `camera_stream` missing from bringup — to fix
+
+### Verification Commands
+
+```bash
+# Monitor heading during turn
+ros2 topic echo /odometry/filtered --once
+
+# Check yaw error sign
+ros2 topic echo /waypoint/error --once
+
+# Verify angular velocity command
+ros2 topic echo /cmd_vel --once
+```
+
+---
+
+## 27. Final Report + Autostart + Verification (24 Nov)
+
+### Navigation & Verification (18–20 Nov)
+
+**18 Nov — End-to-end mission verified:**
+- Turn-to-align (`yaw_err = -2.42 rad` / 139°)
+- Drive 3.19 m
+- Arrival 0.12 m (within 15 cm tolerance)
+- Automatic scan handshake (`Reached WP` → AI scan → `All waypoints reached`)
+- Watchdog timeout stop
+- **Single-run log saved.** Committed + pushed (ed95d14, a1045b3)
+
+**18 Nov — Ultrasonic chain verified:**
+- `/ultrasonic/front` tracks 0.02–0.51 m smoothly
+- No phantom readings at standstill
+- Hysteresis working; box test effectively **pre-passed**
+
+**20 Nov — Navigation regression diagnosed:**
+- Underdamped heading control (gain 0.8 → 0.5)
+- Encoder/EKF verified healthy via WP logs
+- Turn direction confirmed correct; encoders ruled out
+
+---
+
+### Autostart & Deployment (20 Nov)
+
+**systemd services:**
+
+```bash
+# Check service status
+sudo systemctl status agribot.service
+sudo systemctl status dashboard.service
+
+# View logs
+sudo journalctl -u agribot.service -f
+sudo journalctl -u dashboard.service -f
+
+# Restart
+sudo systemctl restart agribot.service
+sudo systemctl restart dashboard.service
+```
+
+| Service | What it starts | WorkingDirectory |
+|---------|---------------|------------------|
+| `agribot.service` | `bringup.launch.py` (10 ROS nodes) | `/home/yvette_pi` |
+| `dashboard.service` | Flask app (port 8080) | `/home/yvette_pi` |
+
+**Critical fix — lgpio notify pipe under systemd:**
+- Symptom: motor/encoder/ultrasonic nodes fail silently under autostart
+- Root cause: systemd default `WorkingDirectory=/` → lgpio notify pipe
+  creation fails
+- Fix: `WorkingDirectory=/home/yvette_pi` in both `.service` files
+
+**mDNS hostname:**
+```bash
+# Access Pi without IP
+ssh yvette_pi@yvette-pi5.local
+
+# Dashboard
+http://yvette-pi5.local:8080
+```
+
+---
+
+### Report (Submitted 25 Nov)
+
+**All chapters complete**, including new **Ch.5 PM & Quality Management
+Review** (Gantt comparison, 7 Appendix F answers, deviations from Part A
+outline).
+
+**Mr Wong feedback addressed:**
+
+| Item | Fix |
+|------|-----|
+| Claim corrections | Verified and corrected |
+| BOM | SGD 396, battery spec consistent (3S LiPo) |
+| Literature | Botterill et al. citation corrected |
+| Abstract | Condensed to ≤ 200 words |
+| CAD design figure | Added |
+| Power distribution diagram | Added |
+| Scan-handshake flowchart | Added |
+
+**Primary evidence:** 18 Nov mission log cited throughout.
+
+---
+
+### Known Limitations (Documented in Report)
+
+| Limitation | Context |
+|------------|---------|
+| Navigation: single verified mission + manual scans | Illness prevented 10-run repeatability table |
+| AI: validation-split only, no held-out test set | 8 printed cards tested (6 correct) |
+| Battery: designed/costed, not wired | Indoor mains validation; listed as Future Work |
 
 ---
 
