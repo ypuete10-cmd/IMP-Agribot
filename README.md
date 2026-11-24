@@ -24,6 +24,22 @@ sensors moved to 5V power (was 3.3V).
 bug squashed. Feed `[0, 255]` float; model's internal `preprocess_input` handles
 normalization. Direct tests: 4/4 correct at 99–100%.
 
+**UPDATE (18 Nov 2026):** Navigation verified end-to-end — single-run mission:
+turn-to-align (139° initial error) → drive 3.19 m → arrival 0.12 m → scan
+handshake → watchdog timeout stop. "Turns wrong / vibrates" regression
+diagnosed: underdamped heading control (fix: angular gain 0.8→0.5).
+Ultrasonic chain verified smooth tracking with no phantom readings.
+
+**UPDATE (20 Nov 2026):** systemd autostart implemented — `agribot.service`
+(ROS 2 stack) + `dashboard.service` (Flask :8080). Power-on to full
+operation in ~90 s. mDNS hostname `yvette-pi5.local` configured. Critical
+lgpio notify pipe bug fixed under systemd (`WorkingDirectory` fix).
+
+**UPDATE (24 Nov 2026):** Final report pretty much done — all chapters complete
+including Ch.5 PM & Quality Management Review. All Mr Wong feedback
+addressed (BOM SGD 396, literature fixes, abstract ≤200 words, CAD figure,
+power diagram, scan-handshake flowchart). Known limitations documented.
+
 ---
 
 ## Hardware
@@ -96,6 +112,11 @@ starts the full robot stack (10 processes: 9 ROS nodes + camera stream).
 ---
 
 ## Results
+
+**Navigation verified end-to-end** — single-run mission: turn-to-align
+(139° initial error) → drive 3.19 m → arrival 0.12 m → scan handshake
+("Other: 73.9%" non-plant rejection) → watchdog timeout stop. No
+interventions. (18 Nov 2026)
 
 **Working autonomous navigation + AI scan** — end-to-end mission verified:
 Run → Drive → Arrive → Scan → Resume → Complete. ~5 cm accuracy over 1 m.
@@ -200,6 +221,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Waypoint navigation | Proportional control, 15 cm tolerance, 0.15 rad orientation |
 | Forward speed | 0.3 m/s max (was 0.15) |
 | Turn-in-place threshold | 0.8 rad (was 0.5) |
+| Angular gain | 0.5 (was 0.8; underdamped heading control fix, 18 Nov) |
 | Emergency stop | Motor-level cut-off, 10 cm threshold, pause-resume |
 | Ultrasonic filtering | Staggered pings, median-of-3, 5-reading debounce, 2cm glitch filter |
 | AI trigger (autonomous) | Event-driven on `/waypoint/reached` |
@@ -239,8 +261,11 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Camera lag resolved (proxy auto-reconnect) | 3 Nov 2026 |
 | Three root causes fixed (PWM, EKF yaw, ultrasonic 5V) | 10 Nov 2026 |
 | AI model retrained at 95.1% val (RTX 5050/WSL2) | 12 Nov 2026 |
-| **AI pipeline fixed end-to-end (double-preprocessing bug)** | **14 Nov 2026** |
-| Straight run + box test + dress rehearsal | *Next* |
+| AI pipeline fixed end-to-end (double-preprocessing bug) | 14 Nov 2026 |
+| **Navigation verified end-to-end (3.19 m, 0.12 m arrival)** | **18 Nov 2026** |
+| systemd autostart + mDNS + lgpio fix | 20 Nov 2026 |
+| **Final report done (all chapters + feedback)** | **25 Nov 2026** |
+| Slides preparation | *Next* |
 | Multi-waypoint mission with plant photos | *Next* |
 | Field-test waypoint accuracy | *Next* |
 | ADS1115 battery monitor | *Next* |
