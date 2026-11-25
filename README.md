@@ -35,10 +35,17 @@ Ultrasonic chain verified smooth tracking with no phantom readings.
 operation in ~90 s. mDNS hostname `yvette-pi5.local` configured. Critical
 lgpio notify pipe bug fixed under systemd (`WorkingDirectory` fix).
 
-**UPDATE (24 Nov 2026):** Final report pretty much done — all chapters complete
+**UPDATE (24 Nov 2026):** Final report submitted — all chapters complete
 including Ch.5 PM & Quality Management Review. All Mr Wong feedback
 addressed (BOM SGD 396, literature fixes, abstract ≤200 words, CAD figure,
 power diagram, scan-handshake flowchart). Known limitations documented.
+
+**UPDATE (25 Nov 2026):** Motor brush root cause found — worn front motor
+brushes identified via nudge test (steering scrub wear). Fix:
+`min_pwm 0.25 → 0.30` compensates higher startup current. Driving normally
+verified. Camera multi-viewer lag diagnosed — per-client `generate_frames()`
+race on `camera.read()`; source healthy at 21 fps. Fix designed (single
+capture thread). Emergency-stop hold re-verified live.
 
 ---
 
@@ -222,6 +229,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | Forward speed | 0.3 m/s max (was 0.15) |
 | Turn-in-place threshold | 0.8 rad (was 0.5) |
 | Angular gain | 0.5 (was 0.8; underdamped heading control fix, 18 Nov) |
+| Motor PWM floor | 0.30 (was 0.25; compensates worn front brushes, 25 Nov) |
 | Emergency stop | Motor-level cut-off, 10 cm threshold, pause-resume |
 | Ultrasonic filtering | Staggered pings, median-of-3, 5-reading debounce, 2cm glitch filter |
 | AI trigger (autonomous) | Event-driven on `/waypoint/reached` |
@@ -264,7 +272,7 @@ python3 ~/ros2_ws/src/robot_control/dashboard/app.py
 | AI pipeline fixed end-to-end (double-preprocessing bug) | 14 Nov 2026 |
 | **Navigation verified end-to-end (3.19 m, 0.12 m arrival)** | **18 Nov 2026** |
 | systemd autostart + mDNS + lgpio fix | 20 Nov 2026 |
-| **Final report done (all chapters + feedback)** | **25 Nov 2026** |
+| **Final report submitted (all chapters + feedback)** | **25 Nov 2026** |
 | Slides preparation | *Next* |
 | Multi-waypoint mission with plant photos | *Next* |
 | Field-test waypoint accuracy | *Next* |
