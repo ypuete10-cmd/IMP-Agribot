@@ -1,5 +1,17 @@
 {
   "mission_id": "INDOOR-RUN",
-  "updated": "",
-  "results": []
+  "updated": "2026-11-25T20:30:44",
+  "results": [
+    {
+      "id": 1,
+      "waypoint": "WP-01",
+      "timestamp": "2026-11-25T20:30:44",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": -0.792,
+      "y": -0.137,
+      "classification": "Tomato___Late_blight",
+      "confidence": 0.791
+    }
+  ]
 }
