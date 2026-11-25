@@ -1,7 +1,7 @@
 # Project Status
 
 **Yvette Lee EnQi (25034155)** — Autonomous Agricultural Robot for Crop Health Monitoring
-Last updated: 24 November 2026 · Viva: 2 December 2026
+Last updated: 25 November 2026 · Viva: 2 December 2026
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 24 November 2026 · Viva: 2 December 2026
 ```
 robot_control/
 ├── robot_control/
-│   ├── motor_driver.py          # PWM diff-drive + e-stop + watchdog latch + min_pwm=0.25
+│   ├── motor_driver.py          # PWM diff-drive + e-stop + watchdog latch + min_pwm=0.30
 │   ├── camera_stream.py         # Flask MJPEG stream (port 5000) + frame sharing
 │   ├── capture.py               # Single photo capture
 │   ├── ai_inference.py          # Event-driven TFLite scanner + manual scan + [0,255] feed
@@ -163,6 +163,18 @@ robot_control/
     Ch.5 PM & Quality Management Review. All Mr Wong feedback addressed
     (BOM SGD 396, literature fixes, abstract ≤200 words, CAD figure, power
     diagram, scan-handshake flowchart). Known limitations documented.
+38. **Motor brush root cause found (25 Nov)** — Worn front motor brushes
+    identified via nudge test. Front motors wear fastest from steering
+    scrub. Fix: `min_pwm 0.25 → 0.30` compensates higher startup current.
+    Driving normally verified. Spare motors to be ordered for permanent
+    replacement before viva.
+39. **Camera multi-viewer lag diagnosed (25 Nov)** — Per-client
+    `generate_frames()` loops race on `camera.read()`. Source confirmed
+    healthy at 21 fps (USB 2.0). Fix designed: single capture thread
+    broadcasting to all clients. To be installed at weekend session.
+40. **Emergency-stop hold re-verified (25 Nov)** — Robot correctly
+    refused to drive while ultrasonic saw phantom 4 cm obstacle.
+    Hysteresis logic healthy.
 
 ## What Is Left (Priority Order)
 
@@ -293,6 +305,17 @@ robot_control/
     instance. **Mitigation:** One launch only after reboot.
 18. **camera_stream missing from bringup** — not started by
     `bringup.launch.py`. **Fix pending.**
+19. **Worn front motor brushes (25 Nov)** — nudge test confirms dead spots.
+    Front motors wear fastest from steering scrub. **Compensated:**
+    `min_pwm 0.25 → 0.30`. **Permanent fix:** spare TT motors on order
+    for replacement before viva.
+20. **Camera multi-viewer lag (25 Nov)** — per-client `generate_frames()`
+    loops race on `camera.read()`. Source healthy at 21 fps. **Fix
+    designed:** single capture thread broadcasting to all clients.
+    **Pending:** proper install via scp at weekend session.
+21. **ultrasonic_node busy-loop (25 Nov)** — ~80% CPU, no sleep in
+    echo-wait loop. **Fix pending:** add `time.sleep()` to reduce CPU
+    load and missed-edge risk.
 
 ## Critical Path
 
@@ -308,8 +331,9 @@ robot_control/
 [COMPLETED] AI double-preprocessing bug fixed + pipeline end-to-end verified (14 Nov 2026)
 [COMPLETED] Navigation verified end-to-end (18 Nov 2026) — 3.19 m drive, 0.12 m arrival, scan handshake
 [COMPLETED] systemd autostart + mDNS + lgpio systemd fix (20 Nov 2026)
-[COMPLETED] Final report done (25 Nov 2026) — all chapters + feedback addressed
-[ACTIVE]    Slides preparation → Viva rehearsal
+[COMPLETED] Final report submitted (25 Nov 2026) — all chapters + feedback addressed
+[COMPLETED] Motor brush root cause found + min_pwm fix applied (25 Nov 2026)
+[ACTIVE]    Slides preparation (due 30 Nov) → Viva rehearsal
 [UPCOMING]  Viva (2 Dec 2026)
 ```
 
