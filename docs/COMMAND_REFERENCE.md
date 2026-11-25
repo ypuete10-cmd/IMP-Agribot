@@ -1,6 +1,6 @@
 # Pi 5 Command Reference — AgriBot
 
-Yvette Lee EnQi (25034155) · Last updated: 24 November 2026
+Yvette Lee EnQi (25034155) · Last updated: 25 November 2026
 
 ---
 
@@ -33,6 +33,7 @@ Yvette Lee EnQi (25034155) · Last updated: 24 November 2026
 25. [AI Pipeline Fixed End-to-End (14 Nov)](#25-ai-pipeline-fixed-end-to-end-14-nov)
 26. [Navigation Verified End-to-End (18 Nov)](#26-navigation-verified-end-to-end-18-nov)
 27. [Final Report + Autostart + Verification (24 Nov)](#27-final-report--autostart--verification-24-nov)
+28. [Report Submitted + Motor Brush Fix + Camera Lag (25 Nov)](#28-report-submitted--motor-brush-fix--camera-lag-25-nov)
 
 ---
 
@@ -412,8 +413,10 @@ ros2 topic echo /emergency_stop      # Bool, True when < threshold
 | **systemd autostart** | **COMPLETE** (agribot.service + dashboard.service, 20 Nov) |
 | **mDNS hostname** | **COMPLETE** (yvette-pi5.local, 20 Nov) |
 | **lgpio systemd fix** | **COMPLETE** (WorkingDirectory fix, 20 Nov) |
-| **Final report** | **SUBMITTED** (all chapters + feedback, 25 Nov) |
-| Heading control tuning | Fix identified (angular gain 0.8→0.5, 20 Nov) |
+| **Final report** | **SUBMITTED** (all chapters + 16 red comments + handbook, 25 Nov) |
+| Motor brushes | **COMPENSATED** (min_pwm 0.25→0.30, 25 Nov); permanent fix pending spare motors |
+| Camera multi-viewer lag | **DIAGNOSED** (race on camera.read()); fix designed, pending weekend install |
+| Heading control tuning | Fix verified (angular gain 0.8→0.5, 24 Nov) |
 | ADS1115 battery monitor | Future Work |
 | Field-test waypoint accuracy | Future Work |
 | Slides | In Progress (due 30 Nov) |
@@ -494,11 +497,14 @@ THRESHOLD_CM = 10   # Indoor testing; raise for outdoor
 | 3 | Camera lag — **RESOLVED** (proxy auto-reconnect, 3 Nov) |
 | 4 | AI double-preprocessing — **RESOLVED** (feed [0,255], 14 Nov) |
 | 5 | Navigation end-to-end — **VERIFIED** (18 Nov) |
-| 6 | systemd autostart — **COMPLETE** (20 Nov) |
-| 7 | Final report — **SUBMITTED** (25 Nov) |
-| 8 | ADS1115 battery monitor (Future Work) |
-| 9 | Outdoor field tests (Future Work) |
-| 10 | Viva (2 Dec 2026) |
+| 6 | 5-run accuracy — **VERIFIED** (mean 9.8 ± 1.9 cm, 24 Nov) |
+| 7 | systemd autostart — **COMPLETE** (20 Nov) |
+| 8 | Final report — **SUBMITTED** (25 Nov) |
+| 9 | Motor brushes — **COMPENSATED** (min_pwm 0.30, 25 Nov) |
+| 10 | Camera multi-viewer lag — **DIAGNOSED**; fix pending weekend |
+| 11 | ADS1115 battery monitor (Future Work) |
+| 12 | Outdoor field tests (Future Work) |
+| 13 | Viva (2 Dec 2026) |
 
 ---
 
@@ -1329,6 +1335,75 @@ outline).
 | Navigation: single verified mission + manual scans | Illness prevented 10-run repeatability table |
 | AI: validation-split only, no held-out test set | 8 printed cards tested (6 correct) |
 | Battery: designed/costed, not wired | Indoor mains validation; listed as Future Work |
+
+---
+
+## 28. Report Submitted + Motor Brush Fix + Camera Lag (25 Nov)
+
+### Final Report Submitted ✅
+
+- **Submitted 25 Nov 2026** — deadline met, MC on record with programme office
+- All chapters complete incl. PM & Quality Review, deviations, 5-run nav table,
+  BOM (SGD 396), test log appendix, risk form, key code listings
+- All 16 Mr Wong red comments addressed, handbook compliance verified
+
+---
+
+### Motor Brush Root Cause Found
+
+**Symptom:** Wheel lag — motors not responding at low PWM.
+
+**Diagnosis:** Nudge test confirms **worn front motor brushes**. Motor catches
+when hand-started from a dead spot. Front motors wear fastest from **steering
+scrub** (differential drive turns scrub front wheels against floor).
+
+**Fix applied:**
+```python
+# motor_driver.py
+min_pwm = 0.30  # was 0.25 — compensates higher startup current of worn brushes
+```
+
+- Verified driving normally after change
+- Spare TT motors to be ordered for permanent replacement before viva
+
+---
+
+### Camera Multi-Viewer Lag Diagnosed
+
+**Symptom:** Dashboard camera feed lags with multiple viewers.
+
+**Root cause:** Per-client `generate_frames()` loops race on `camera.read()` —
+each extra viewer steals frames.
+
+**Confirmed healthy source:**
+```bash
+# Direct camera test — source at 21 fps, USB 2.0 bandwidth sufficient
+v4l2-ctl --device=/dev/video0 --all | grep fps
+```
+
+**Fix designed:** Single capture thread + broadcast to all clients.
+
+**Pending:** Proper install via scp at weekend session.
+
+---
+
+### Weekend Fix List
+
+| # | Fix | File | Method |
+|---|-----|------|--------|
+| 1 | Add sleep to ultrasonic echo-wait loop | `ultrasonic_node.py` | scp + restart |
+| 2 | Single-capture-thread camera patch | `camera_stream.py` | scp + restart |
+| 3 | Front motor replacement | Hardware | When spares arrive |
+| 4 | Push min_pwm commit | Git | `git add -A && git commit && git push` |
+
+---
+
+### Upcoming
+
+| Date | Task |
+|------|------|
+| 30 Nov | Slides (8 max) — `Lee_Yvette_25034155_Slides.ppt` |
+| 2 Dec | Viva/demo — autostart flow (`yvette-pi5.local:8080`) |
 
 ---
 
