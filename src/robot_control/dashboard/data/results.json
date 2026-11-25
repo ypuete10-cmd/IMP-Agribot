@@ -1,17 +1,83 @@
 {
   "mission_id": "INDOOR-RUN",
-  "updated": "2026-11-25T20:30:44",
+  "updated": "2026-11-25T21:13:37",
   "results": [
     {
       "id": 1,
       "waypoint": "WP-01",
-      "timestamp": "2026-11-25T20:30:44",
+      "timestamp": "2026-11-25T21:09:05",
       "lat": 0.0,
       "lon": 0.0,
-      "x": -0.792,
-      "y": -0.137,
-      "classification": "Tomato___Late_blight",
-      "confidence": 0.791
+      "x": -0.285,
+      "y": -1.248,
+      "classification": "Other",
+      "confidence": 0.915
+    },
+    {
+      "id": 2,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:12:26",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "Tomato___Early_blight",
+      "confidence": 0.995
+    },
+    {
+      "id": 3,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:12:50",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "Tomato___Early_blight",
+      "confidence": 1.0
+    },
+    {
+      "id": 4,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:13:00",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "Tomato___Early_blight",
+      "confidence": 0.994
+    },
+    {
+      "id": 5,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:13:30",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "Tomato___Early_blight",
+      "confidence": 0.838
+    },
+    {
+      "id": 6,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:13:35",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "unknown_no_plant",
+      "confidence": 0.586
+    },
+    {
+      "id": 7,
+      "waypoint": "WP-00",
+      "timestamp": "2026-11-25T21:13:37",
+      "lat": 0.0,
+      "lon": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "classification": "Tomato___Early_blight",
+      "confidence": 0.929
     }
   ]
 }
