@@ -4,6 +4,70 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
+## 25/11/2026 — REPORT SUBMITTED + MOTOR BRUSH ROOT CAUSE + CAMERA LAG DIAGNOSED
+
+### Final Report Submitted ✅
+
+- **Submitted 25 Nov 2026** — deadline met, MC on record with programme office
+- All chapters complete: PM & Quality Review (7 Appendix F answers), deviations
+  from Part A outline, 5-run navigation table (mean 9.8 ± 1.9 cm), full BOM
+  (SGD 396), test log appendix with terminal evidence + build photos, signed
+  risk form, key code listings
+
+---
+
+### Robot: Root Cause of Wheel Lag Found — Worn Front Motor Brushes
+
+**Diagnosis (25 Nov):**
+- Nudge test confirmed: motor catches when hand-started from a dead spot
+- Front motors wear fastest from steering scrub (differential drive turns
+  scrub the front wheels against the floor)
+- This explains the "wheel lag" symptom better than software PWM floors
+
+**Fix applied:**
+- `min_pwm 0.25 → 0.30` in `motor_driver.py`
+- Compensates higher startup current of worn brushes
+- Verified driving normally after change
+
+**Permanent fix:** spare TT motors to be ordered for replacement before viva
+
+**Emergency-stop hold behavior re-verified live:**
+- Robot correctly refused to drive while ultrasonic saw a phantom 4 cm
+  obstacle (hands/desk interference)
+- Confirms hysteresis logic still healthy
+
+---
+
+### Camera: Multi-Viewer Lag Diagnosed
+
+**Root cause:** `camera_stream`'s per-client `generate_frames()` loops race on
+`camera.read()` — each extra viewer steals frames from the others.
+
+**Confirmed healthy source:**
+- Camera feed at 21 fps when monitored directly (USB 2.0 bandwidth sufficient)
+- Source is healthy; the lag is a **software race condition**, not hardware
+
+**Fix designed:** single capture thread broadcasting to all clients
+- Rollback applied after a paste-truncated attempt corrupted the file
+- To be installed properly via scp at weekend session
+
+---
+
+### Flagged for Weekend Fixes
+
+1. **ultrasonic_node busy-loop** (~80% CPU, no sleep in echo-wait loop) — add
+   small `time.sleep()`; reduces missed-edge risk too
+2. **camera_stream single-capture-thread patch** (proper install via scp)
+3. **Front motor replacement** when spare TT motors arrive
+4. **Push pending commit:**
+   ```bash
+   cd ~/ros2_ws/src/robot_control && git add -A && \
+   git commit -m "Compensate worn motor brushes: min_pwm 0.25->0.30 (verified 25 Nov)" && \
+   git pull --rebase && git push
+   ```
+
+---
+
 ## 24/11/2026 — FINAL REPORT SUBMITTED + AUTOSTART + VERIFICATION
 
 ### Navigation & Verification (18–20 Nov)
@@ -54,7 +118,7 @@ Dated progress log with photos. Newest entries at the top.
 
 ---
 
-### Report (done 25 Nov)
+### Report (Submitted 25 Nov)
 
 **All chapters complete**, including:
 - **New Chapter 5:** PM & Quality Management Review
