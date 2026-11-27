@@ -6,8 +6,12 @@ Serves results table + GPS health map from data/results.json.
 Later, real data arrives either via:
   - result_logger.py node writing to results.json (current design), or
   - robot POSTing to /api/submit directly
+
+Added: /power shutdown page — clean system poweroff from the browser
+(POST-only trigger behind a confirm page; requires passwordless sudo
+entry for /sbin/poweroff, see /etc/sudoers.d/agribot-power).
 """
-import json, os, threading
+import json, os, threading, subprocess
 from datetime import datetime
 from flask import Flask, jsonify, render_template, request, abort, Response, stream_with_context
 import requests
@@ -82,6 +86,7 @@ def api_submit():
     data['updated'] = datetime.now().isoformat(timespec='seconds')
     save_results(data)
     return jsonify({'ok': True, 'id': r['id']})
+
 CAM = 'http://127.0.0.1:5000'
 
 @app.route('/cam')
@@ -103,6 +108,44 @@ def cam_feed():
 
     return Response(stream_with_context(gen()),
                     content_type='multipart/x-mixed-replace; boundary=frame')
+
+# ---------------------------------------------------------------------------
+# Power control — clean shutdown from the browser
+# GET  /power  -> confirm page (no action)
+# POST /power  -> initiates system poweroff (passwordless sudo required)
+# ---------------------------------------------------------------------------
+@app.route('/power', methods=['GET'])
+def power_page():
+    return """<!doctype html>
+<html><head><title>IMP-AgriBot Power</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: Arial, sans-serif; background:#111; color:#eee;
+         display:flex; height:100vh; align-items:center; justify-content:center; margin:0; }
+  .box { text-align:center; background:#1e1e1e; padding:32px 40px; border-radius:12px; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  p  { color:#aaa; font-size:14px; margin:0 0 20px; }
+  button { font-size:16px; padding:12px 28px; border:none; border-radius:8px;
+           background:#c0392b; color:#fff; cursor:pointer; }
+  button:hover { background:#e74c3c; }
+  a.cancel { display:inline-block; margin-top:16px; color:#888; font-size:13px; }
+</style></head><body>
+  <div class="box">
+    <h1>Shutdown IMP-AgriBot?</h1>
+    <p>This cleanly powers off the Raspberry Pi.<br>Flip the main switch after ~20 seconds.</p>
+    <form method="post" action="/power">
+      <button type="submit">Yes, shutdown</button>
+    </form>
+    <a class="cancel" href="/">Cancel — back to dashboard</a>
+  </div>
+</body></html>"""
+
+@app.route('/power', methods=['POST'])
+def power_off():
+    # Popen so the response can flush before systemd tears the stack down
+    subprocess.Popen(['sudo', '-n', '/sbin/poweroff'])
+    return ('Shutting down — wait ~20 s, then flip the main switch. '
+            '<a href="/">Back</a> (will stop responding).')
 
 if __name__ == '__main__':
     # Port 8080 — 5000 is already used by your camera stream

@@ -109,6 +109,7 @@
       <button id="wp-stop">Stop</button>
       <button id="ai-scan" style="background:#7b1fa2;">Scan Plant</button>
       <button id="clear-log" style="background:#d32f2f;">Clear Log</button>
+      <button id="pi-shutdown" style="background:#37474f;">Shutdown Pi</button>
       <span id="wp-count">0 waypoints</span>
     </div>
   </div>
@@ -187,6 +188,16 @@ document.getElementById('wp-run').addEventListener('click', () => {
 document.getElementById('wp-stop').addEventListener('click', () => {
   autonomous = false;
   wpStop.publish(new ROSLIB.Message({ data: false }));
+});
+
+// ===== SHUTDOWN PI (clean poweroff; wait ~20 s then flip main switch) =====
+document.getElementById('pi-shutdown').addEventListener('click', () => {
+  if (confirm('Power off the Raspberry Pi cleanly?\n\nThe dashboard will disconnect. Wait ~20 s, then flip the main switch.')) {
+    fetch('/power', { method: 'POST' }).then(() => {
+      rstat.textContent = 'shutting down…';
+      dot.className = 'status-dot';
+    }).catch(() => {});
+  }
 });
 
 // ===== MANUAL AI SCAN =====
